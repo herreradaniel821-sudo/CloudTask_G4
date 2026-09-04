@@ -1,4 +1,4 @@
-<img width="1920" height="1080" alt="image" src="https://github.com/user-attachments/assets/a3392d51-21fd-410d-aade-66ccced57c9c" /># CloudTask
+
 
 Bryan Moreno Diaz
 Gloribeth Renteria
