@@ -1,12 +1,18 @@
-const CLAVE_ALMACENAMIENTO = "cloudtasks:tareas";
+
+
+// Configuración de Supabase 
+const SUPABASE_URL = "https://kegxjelnuopcyjkfnxya.supabase.co";
+const SUPABASE_KEY = "sb_publishable_jpSlcXHQWrVudkRhjbHRPg_ncS1pWow";
+
+const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
 const MAX_LONGITUD_TITULO = 80;
 const MAX_LONGITUD_DESCRIPCION = 300;
 
-let tareas = cargarTareas();
+let tareas = [];
 let filtroActual = "todas";
 
-
-
+//Referencias al DOM 
 const formulario = document.getElementById("formulario-tarea");
 const tituloInput = document.getElementById("titulo");
 const descripcionInput = document.getElementById("descripcion");
@@ -21,30 +27,10 @@ const contadorTareas = document.getElementById("contador-tareas");
 const estadoVacio = document.getElementById("estado-vacio");
 const botonesFiltro = document.querySelectorAll(".filter-btn");
 
-
-function cargarTareas() {
-  try {
-    const raw = localStorage.getItem(CLAVE_ALMACENAMIENTO);
-    return raw ? JSON.parse(raw) : [];
-  } catch (error) {
-    console.error("No se pudieron cargar las tareas guardadas:", error);
-    return [];
-  }
-}
-
-function guardarTareas() {
-  try {
-    localStorage.setItem(CLAVE_ALMACENAMIENTO, JSON.stringify(tareas));
-  } catch (error) {
-    console.error("No se pudieron guardar las tareas:", error);
-  }
-}
-
-
+//Utilidades 
 function generarId() {
   return `tarea-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
-
 
 function escapeHtml(text) {
   const div = document.createElement("div");
@@ -64,6 +50,93 @@ const ETIQUETAS_PRIORIDAD = {
   alta: "Prioridad alta",
 };
 
+// Capa de datos (Fase 2: Supabase / CRUD real) 
+
+// READ: trae todas las tareas desde Supabase
+async function cargarTareas() {
+  const { data, error } = await supabaseClient
+    .from("tasks")
+    .select("*")
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    console.error("Error al cargar tareas:", error.message);
+    alert("No se pudieron cargar las tareas. Revisa la consola para más detalles.");
+    return [];
+  }
+
+  // Traducimos los nombres de columna 
+  return data.map((row) => ({
+    id: row.id,
+    title: row.title,
+    description: row.description,
+    dueDate: row.due_date,
+    priority: row.priority,
+    status: row.status,
+    created_at: row.created_at,
+  }));
+}
+
+// inserta una nueva tarea en Supabase
+async function crearTarea({ title, description, dueDate, priority }) {
+  const nuevaTarea = {
+    id: generarId(),
+    title: title.trim(),
+    description: description.trim() || null,
+    due_date: dueDate || null,
+    priority,
+    status: "pendiente",
+  };
+
+  const { error } = await supabaseClient.from("tasks").insert(nuevaTarea);
+
+  if (error) {
+    console.error("Error al crear tarea:", error.message);
+    alert("No se pudo crear la tarea. Revisa la consola para más detalles.");
+    return;
+  }
+
+  await recargarYRenderizar();
+}
+
+// cambia el estado (pendiente <-> completada)
+async function alternarEstadoTarea(id) {
+  const tarea = tareas.find((t) => t.id === id);
+  if (!tarea) return;
+
+  const nuevoEstado = tarea.status === "pendiente" ? "completada" : "pendiente";
+
+  const { error } = await supabaseClient
+    .from("tasks")
+    .update({ status: nuevoEstado })
+    .eq("id", id);
+
+  if (error) {
+    console.error("Error al actualizar tarea:", error.message);
+    alert("No se pudo actualizar la tarea. Revisa la consola para más detalles.");
+    return;
+  }
+
+  await recargarYRenderizar();
+}
+
+
+async function eliminarTarea(id) {
+  const { error } = await supabaseClient.from("tasks").delete().eq("id", id);
+
+  if (error) {
+    console.error("Error al eliminar tarea:", error.message);
+    alert("No se pudo eliminar la tarea. Revisa la consola para más detalles.");
+    return;
+  }
+
+  await recargarYRenderizar();
+}
+
+async function recargarYRenderizar() {
+  tareas = await cargarTareas();
+  renderizar();
+}
 
 
 function validarFormulario(titulo, descripcion) {
@@ -92,40 +165,6 @@ function validarFormulario(titulo, descripcion) {
 
   return esValido;
 }
-
-
-function crearTarea({ title, description, dueDate, priority }) {
-  const nuevaTarea = {
-    id: generarId(),
-    title: title.trim(),
-    description: description.trim(),
-    dueDate: dueDate || null,
-    priority,
-    status: "pendiente",
-    created_at: new Date().toISOString(),
-  };
-
-  tareas.unshift(nuevaTarea);
-  guardarTareas();
-  renderizar();
-}
-
-function alternarEstadoTarea(id) {
-  const tarea = tareas.find((t) => t.id === id);
-  if (!tarea) return;
-
-  tarea.status = tarea.status === "pendiente" ? "completada" : "pendiente";
-  guardarTareas();
-  renderizar();
-}
-
-function eliminarTarea(id) {
-  tareas = tareas.filter((t) => t.id !== id);
-  guardarTareas();
-  renderizar();
-}
-
-
 
 function obtenerTareasFiltradas() {
   if (filtroActual === "pendiente") {
@@ -191,8 +230,7 @@ function renderizar() {
       : "No hay tareas que coincidan con este filtro.";
 }
 
-
-formulario.addEventListener("submit", (event) => {
+formulario.addEventListener("submit", async (event) => {
   event.preventDefault();
 
   const titulo = tituloInput.value;
@@ -200,7 +238,7 @@ formulario.addEventListener("submit", (event) => {
 
   if (!validarFormulario(titulo, descripcion)) return;
 
-  crearTarea({
+  await crearTarea({
     title: titulo,
     description: descripcion,
     dueDate: fechaLimiteInput.value,
@@ -222,4 +260,4 @@ botonesFiltro.forEach((button) => {
 });
 
 
-renderizar();
+recargarYRenderizar();
