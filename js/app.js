@@ -1,7 +1,6 @@
 /* =========================================================
    CloudTasks - app.js
-   FASE 2+: conectado a Supabase (PostgreSQL) + autenticación
-   Cada usuario ve y gestiona únicamente sus propias tareas.
+   FASE 2+: Supabase (PostgreSQL) + autenticación con nombre
    ========================================================= */
 
 // ---------- Configuración de Supabase ----------
@@ -21,8 +20,11 @@ let modoAuth = "login"; // "login" | "registro"
 const authSection = document.getElementById("auth-section");
 const appSection = document.getElementById("app-section");
 const authForm = document.getElementById("auth-form");
+const authNameField = document.getElementById("auth-name-field");
+const authNameInput = document.getElementById("auth-name");
 const authEmailInput = document.getElementById("auth-email");
 const authPasswordInput = document.getElementById("auth-password");
+const togglePasswordBtn = document.getElementById("toggle-password-btn");
 const authError = document.getElementById("auth-error");
 const authSubmitBtn = document.getElementById("auth-submit-btn");
 const authToggleBtn = document.getElementById("auth-toggle-btn");
@@ -54,11 +56,15 @@ function actualizarTextosAuth() {
     authSubmitBtn.textContent = "Iniciar sesión";
     modeQuestion.textContent = "¿No tienes cuenta?";
     authToggleBtn.textContent = "Regístrate";
+    authNameField.hidden = true;
+    authNameInput.required = false;
   } else {
     modeLabel.textContent = "Crear cuenta";
     authSubmitBtn.textContent = "Registrarme";
     modeQuestion.textContent = "¿Ya tienes cuenta?";
     authToggleBtn.textContent = "Inicia sesión";
+    authNameField.hidden = false;
+    authNameInput.required = true;
   }
   authError.textContent = "";
 }
@@ -68,10 +74,23 @@ authToggleBtn.addEventListener("click", () => {
   actualizarTextosAuth();
 });
 
+// Mostrar / ocultar contraseña
+const ICONO_OJO = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>`;
+
+const ICONO_OJO_TACHADO = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.94 10.94 0 0 1 12 20c-7 0-11-8-11-8a18.5 18.5 0 0 1 5.06-5.94M9.9 4.24A10.94 10.94 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>`;
+
+togglePasswordBtn.addEventListener("click", () => {
+  const esPassword = authPasswordInput.type === "password";
+  authPasswordInput.type = esPassword ? "text" : "password";
+  togglePasswordBtn.innerHTML = esPassword ? ICONO_OJO_TACHADO : ICONO_OJO;
+  togglePasswordBtn.setAttribute("aria-label", esPassword ? "Ocultar contraseña" : "Mostrar contraseña");
+});
+
 authForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   authError.textContent = "";
 
+  const nombre = authNameInput.value.trim();
   const email = authEmailInput.value.trim();
   const password = authPasswordInput.value;
 
@@ -83,6 +102,10 @@ authForm.addEventListener("submit", async (event) => {
     authError.textContent = "La contraseña debe tener al menos 6 caracteres.";
     return;
   }
+  if (modoAuth === "registro" && !nombre) {
+    authError.textContent = "El nombre es obligatorio para registrarte.";
+    return;
+  }
 
   authSubmitBtn.disabled = true;
 
@@ -91,10 +114,14 @@ authForm.addEventListener("submit", async (event) => {
       const { error } = await supabaseClient.auth.signInWithPassword({ email, password });
       if (error) throw error;
     } else {
-      const { error } = await supabaseClient.auth.signUp({ email, password });
+      const { error } = await supabaseClient.auth.signUp({
+        email,
+        password,
+        options: {
+          data: { full_name: nombre },
+        },
+      });
       if (error) throw error;
-      // Si "Confirm email" está activado en Supabase, aquí tocaría avisar
-      // que revisen su correo. Si está desactivado, el login es inmediato.
     }
   } catch (error) {
     authError.textContent = traducirErrorAuth(error.message);
@@ -120,7 +147,6 @@ logoutBtn.addEventListener("click", async () => {
   await supabaseClient.auth.signOut();
 });
 
-// Reacciona automáticamente cuando el usuario inicia o cierra sesión
 supabaseClient.auth.onAuthStateChange((_event, session) => {
   if (session) {
     mostrarApp(session.user);
@@ -132,7 +158,8 @@ supabaseClient.auth.onAuthStateChange((_event, session) => {
 function mostrarApp(user) {
   authSection.hidden = true;
   appSection.hidden = false;
-  userEmailDisplay.textContent = user.email;
+  const nombre = user.user_metadata && user.user_metadata.full_name;
+  userEmailDisplay.textContent = nombre ? `${nombre} (${user.email})` : user.email;
   recargarYRenderizar();
 }
 
@@ -170,7 +197,7 @@ const ETIQUETAS_PRIORIDAD = {
   alta: "Prioridad alta",
 };
 
-// READ: trae solo las tareas del usuario logueado (RLS ya filtra, pero ordenamos)
+// READ
 async function cargarTareas() {
   const { data, error } = await supabaseClient
     .from("tasks")
@@ -179,6 +206,7 @@ async function cargarTareas() {
 
   if (error) {
     console.error("Error al cargar tareas:", error.message);
+    alert("No se pudieron cargar las tareas: " + error.message);
     return [];
   }
 
@@ -195,7 +223,13 @@ async function cargarTareas() {
 
 // CREATE
 async function crearTarea({ title, description, dueDate, priority }) {
-  const { data: userData } = await supabaseClient.auth.getUser();
+  const { data: userData, error: userError } = await supabaseClient.auth.getUser();
+
+  if (userError || !userData || !userData.user) {
+    console.error("Error al obtener el usuario:", userError);
+    alert("No se pudo identificar tu sesión. Vuelve a iniciar sesión.");
+    return;
+  }
 
   const nuevaTarea = {
     id: generarId(),
@@ -211,7 +245,7 @@ async function crearTarea({ title, description, dueDate, priority }) {
 
   if (error) {
     console.error("Error al crear tarea:", error.message);
-    alert("No se pudo crear la tarea.");
+    alert("No se pudo crear la tarea: " + error.message);
     return;
   }
 
@@ -232,7 +266,7 @@ async function alternarEstadoTarea(id) {
 
   if (error) {
     console.error("Error al actualizar tarea:", error.message);
-    alert("No se pudo actualizar la tarea.");
+    alert("No se pudo actualizar la tarea: " + error.message);
     return;
   }
 
@@ -245,7 +279,7 @@ async function eliminarTarea(id) {
 
   if (error) {
     console.error("Error al eliminar tarea:", error.message);
-    alert("No se pudo eliminar la tarea.");
+    alert("No se pudo eliminar la tarea: " + error.message);
     return;
   }
 
@@ -347,16 +381,20 @@ formulario.addEventListener("submit", async (event) => {
 
   if (!validarFormulario(titulo, descripcion)) return;
 
-  await crearTarea({
-    title: titulo,
-    description: descripcion,
-    dueDate: fechaLimiteInput.value,
-    priority: prioridadInput.value,
-  });
-
-  formulario.reset();
-  prioridadInput.value = "media";
-  tituloInput.focus();
+  // El "finally" garantiza que el formulario SIEMPRE se limpie,
+  // haya funcionado la creación de la tarea o no.
+  try {
+    await crearTarea({
+      title: titulo,
+      description: descripcion,
+      dueDate: fechaLimiteInput.value,
+      priority: prioridadInput.value,
+    });
+  } finally {
+    formulario.reset();
+    prioridadInput.value = "media";
+    tituloInput.focus();
+  }
 });
 
 botonesFiltro.forEach((button) => {
@@ -373,7 +411,6 @@ botonesFiltro.forEach((button) => {
 // =========================================================
 actualizarTextosAuth();
 
-// Revisa si ya había una sesión activa (por ejemplo, al recargar la página)
 supabaseClient.auth.getSession().then(({ data: { session } }) => {
   if (session) {
     mostrarApp(session.user);

@@ -606,3 +606,40 @@ body {
     display: none;
   }
 }
+/* ---------- campo de contraseña con botón mostrar/ocultar ---------- */
+ 
+.password-field {
+  position: relative;
+  display: flex;
+}
+ 
+.password-field input {
+  flex: 1;
+  padding-right: 44px;
+}
+
+#auth-name-field[hidden] {
+  display: none !important;
+}
+
+.password-field__toggle svg {
+  display: block;
+  color: var(--pixel-ink);
+}
+
+.password-field__toggle:hover svg {
+  color: var(--pixel-cyan);
+}
+
+.password-field__toggle {
+  position: absolute;
+  right: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  font-size: 16px;
+  cursor: pointer;
+  padding: 4px;
+}
+ 
