@@ -4,16 +4,9 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>CloudTasks — Gestor</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link
-    href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap"
-    rel="stylesheet"
-  />
   <link rel="stylesheet" href="css/styles.css" />
 </head>
 <body>
-
   <header class="app-header">
     <div class="app-header__brand">
       <span class="app-header__logo" aria-hidden="true">☁</span>
@@ -22,86 +15,104 @@
     <p class="app-header__tagline">Organiza tus tareas</p>
   </header>
 
-  <main class="app-main">
+  <!-- ============ SECCIÓN DE AUTENTICACIÓN ============ -->
+  <main id="auth-section" class="app-main app-main--auth">
+    <section class="panel panel--auth" aria-labelledby="auth-title">
+      <h2 id="auth-title" data-mode-label>Iniciar sesión</h2>
 
-    
-    <section class="panel panel--form" aria-labelledby="form-title">
-      <h2 id="form-title">Nueva tarea</h2>
-
-      <form id="formulario-tarea" class="task-form" novalidate>
-
+      <form id="auth-form" class="task-form" novalidate>
         <div class="field">
-          <label for="titulo">Título <span class="field__required">*</span></label>
-          <input
-            type="text"
-            id="titulo"
-            name="titulo"
-            placeholder="Ej: informe de laboratorio"
-            maxlength="80"
-            autocomplete="off"
-          />
-          <p class="field__error" id="title-error" role="alert"></p>
+          <label for="auth-email">Correo</label>
+          <input type="email" id="auth-email" name="email" required autocomplete="email" />
         </div>
-
         <div class="field">
-          <label for="descripcion">Descripción</label>
-          <textarea
-            id="descripcion"
-            name="descripcion"
-            placeholder="(opcional)"
-            maxlength="300"
-            rows="3"
-          ></textarea>
-          <p class="field__error" id="description-error" role="alert"></p>
+          <label for="auth-password">Contraseña</label>
+          <input type="password" id="auth-password" name="password" required minlength="6" autocomplete="current-password" />
         </div>
 
-        <div class="field-row">
-          <div class="field">
-            <label for="fechaLimite">Fecha límite</label>
-            <input type="date" id="fechaLimite" name="fechaLimite" />
-          </div>
+        <p class="field__error" id="auth-error" role="alert"></p>
 
-          <div class="field">
-            <label for="prioridad">Prioridad</label>
-            <select id="prioridad" name="prioridad">
-              <option value="baja">Baja</option>
-              <option value="media" selected>Media</option>
-              <option value="alta">Alta</option>
-            </select>
-          </div>
-        </div>
-
-        <button type="submit" class="btn btn--primary">Agregar tarea</button>
+        <button type="submit" class="btn btn--primary" id="auth-submit-btn">Iniciar sesión</button>
       </form>
-    </section>
 
-    
-    <section class="panel panel--list" aria-labelledby="list-title">
-      <div class="panel__list-header">
-        <h2 id="list-title">Mis tareas</h2>
-
-        <div class="filters" role="group" aria-label="Filtrar tareas">
-          <button type="button" class="filter-btn is-active" data-filter="todas">Todas</button>
-          <button type="button" class="filter-btn" data-filter="pendiente">Pendientes</button>
-          <button type="button" class="filter-btn" data-filter="completada">Completadas</button>
-        </div>
-      </div>
-
-      <p class="task-count" id="contador-tareas"></p>
-
-      <ul id="lista-tareas" class="task-list" aria-live="polite">
-        
-      </ul>
-
-      <p class="empty-state" id="estado-vacio">
-        Aún no tienes tareas. Crea la primera desde el formulario.
+      <p class="auth-toggle">
+        <span data-mode-question>¿No tienes cuenta?</span>
+        <button type="button" id="auth-toggle-btn" class="auth-toggle__link">Regístrate</button>
       </p>
     </section>
-
   </main>
 
+  <!-- ============ APP PRINCIPAL (oculta hasta iniciar sesión) ============ -->
+  <div id="app-section" class="app-section" hidden>
+    <div class="user-bar">
+      <span class="user-bar__email" id="user-email-display"></span>
+      <button type="button" id="logout-btn" class="btn btn--secondary">Cerrar sesión</button>
+    </div>
+
+    <main class="app-main">
+      <section class="panel panel--form" aria-labelledby="form-title">
+        <h2 id="form-title">Nueva tarea</h2>
+        <form id="formulario-tarea" class="task-form" novalidate>
+          <div class="field">
+            <label for="titulo">Título <span class="field__required">*</span></label>
+            <input
+              type="text"
+              id="titulo"
+              name="titulo"
+              placeholder="Ej: informe de laboratorio"
+              maxlength="80"
+              autocomplete="off"
+            />
+            <p class="field__error" id="title-error" role="alert"></p>
+          </div>
+          <div class="field">
+            <label for="descripcion">Descripción</label>
+            <textarea
+              id="descripcion"
+              name="descripcion"
+              placeholder="(opcional)"
+              maxlength="300"
+              rows="3"
+            ></textarea>
+            <p class="field__error" id="description-error" role="alert"></p>
+          </div>
+          <div class="field-row">
+            <div class="field">
+              <label for="fechaLimite">Fecha límite</label>
+              <input type="date" id="fechaLimite" name="fechaLimite" />
+            </div>
+            <div class="field">
+              <label for="prioridad">Prioridad</label>
+              <select id="prioridad" name="prioridad">
+                <option value="baja">Baja</option>
+                <option value="media" selected>Media</option>
+                <option value="alta">Alta</option>
+              </select>
+            </div>
+          </div>
+          <button type="submit" class="btn btn--primary">Agregar tarea</button>
+        </form>
+      </section>
+
+      <section class="panel panel--list" aria-labelledby="list-title">
+        <div class="panel__list-header">
+          <h2 id="list-title">Mis tareas</h2>
+          <div class="filters" role="group" aria-label="Filtrar tareas">
+            <button type="button" class="filter-btn is-active" data-filter="todas">Todas</button>
+            <button type="button" class="filter-btn" data-filter="pendiente">Pendientes</button>
+            <button type="button" class="filter-btn" data-filter="completada">Completadas</button>
+          </div>
+        </div>
+        <p class="task-count" id="contador-tareas"></p>
+        <ul id="lista-tareas" class="task-list" aria-live="polite"></ul>
+          Aún no tienes tareas. Crea la primera desde el formulario.
+        </p>
+      </section>
+    </main>
+  </div>
+
   <footer class="app-footer">
-    <p>CloudTasks-2026</p>
+    <p>CloudTasks</p>
   </footer>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>

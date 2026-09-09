@@ -1,6 +1,10 @@
+/* =========================================================
+   CloudTasks - app.js
+   FASE 2+: conectado a Supabase (PostgreSQL) + autenticación
+   Cada usuario ve y gestiona únicamente sus propias tareas.
+   ========================================================= */
 
-
-// Configuración de Supabase 
+// ---------- Configuración de Supabase ----------
 const SUPABASE_URL = "https://kegxjelnuopcyjkfnxya.supabase.co";
 const SUPABASE_KEY = "sb_publishable_jpSlcXHQWrVudkRhjbHRPg_ncS1pWow";
 
@@ -11,23 +15,139 @@ const MAX_LONGITUD_DESCRIPCION = 300;
 
 let tareas = [];
 let filtroActual = "todas";
+let modoAuth = "login"; // "login" | "registro"
 
-//Referencias al DOM 
+// ---------- Referencias al DOM: Autenticación ----------
+const authSection = document.getElementById("auth-section");
+const appSection = document.getElementById("app-section");
+const authForm = document.getElementById("auth-form");
+const authEmailInput = document.getElementById("auth-email");
+const authPasswordInput = document.getElementById("auth-password");
+const authError = document.getElementById("auth-error");
+const authSubmitBtn = document.getElementById("auth-submit-btn");
+const authToggleBtn = document.getElementById("auth-toggle-btn");
+const modeLabel = document.querySelector("[data-mode-label]");
+const modeQuestion = document.querySelector("[data-mode-question]");
+const userEmailDisplay = document.getElementById("user-email-display");
+const logoutBtn = document.getElementById("logout-btn");
+
+// ---------- Referencias al DOM: App de tareas ----------
 const formulario = document.getElementById("formulario-tarea");
 const tituloInput = document.getElementById("titulo");
 const descripcionInput = document.getElementById("descripcion");
 const fechaLimiteInput = document.getElementById("fechaLimite");
 const prioridadInput = document.getElementById("prioridad");
-
 const errorTitulo = document.getElementById("title-error");
 const errorDescripcion = document.getElementById("description-error");
-
 const listaTareas = document.getElementById("lista-tareas");
 const contadorTareas = document.getElementById("contador-tareas");
 const estadoVacio = document.getElementById("estado-vacio");
 const botonesFiltro = document.querySelectorAll(".filter-btn");
 
-//Utilidades 
+// =========================================================
+//                     AUTENTICACIÓN
+// =========================================================
+
+function actualizarTextosAuth() {
+  if (modoAuth === "login") {
+    modeLabel.textContent = "Iniciar sesión";
+    authSubmitBtn.textContent = "Iniciar sesión";
+    modeQuestion.textContent = "¿No tienes cuenta?";
+    authToggleBtn.textContent = "Regístrate";
+  } else {
+    modeLabel.textContent = "Crear cuenta";
+    authSubmitBtn.textContent = "Registrarme";
+    modeQuestion.textContent = "¿Ya tienes cuenta?";
+    authToggleBtn.textContent = "Inicia sesión";
+  }
+  authError.textContent = "";
+}
+
+authToggleBtn.addEventListener("click", () => {
+  modoAuth = modoAuth === "login" ? "registro" : "login";
+  actualizarTextosAuth();
+});
+
+authForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  authError.textContent = "";
+
+  const email = authEmailInput.value.trim();
+  const password = authPasswordInput.value;
+
+  if (!email || !password) {
+    authError.textContent = "Completa correo y contraseña.";
+    return;
+  }
+  if (password.length < 6) {
+    authError.textContent = "La contraseña debe tener al menos 6 caracteres.";
+    return;
+  }
+
+  authSubmitBtn.disabled = true;
+
+  try {
+    if (modoAuth === "login") {
+      const { error } = await supabaseClient.auth.signInWithPassword({ email, password });
+      if (error) throw error;
+    } else {
+      const { error } = await supabaseClient.auth.signUp({ email, password });
+      if (error) throw error;
+      // Si "Confirm email" está activado en Supabase, aquí tocaría avisar
+      // que revisen su correo. Si está desactivado, el login es inmediato.
+    }
+  } catch (error) {
+    authError.textContent = traducirErrorAuth(error.message);
+  } finally {
+    authSubmitBtn.disabled = false;
+  }
+});
+
+function traducirErrorAuth(mensaje) {
+  if (mensaje.includes("Invalid login credentials")) {
+    return "Correo o contraseña incorrectos.";
+  }
+  if (mensaje.includes("already registered") || mensaje.includes("already been registered")) {
+    return "Ese correo ya está registrado. Intenta iniciar sesión.";
+  }
+  if (mensaje.includes("Password should be")) {
+    return "La contraseña no cumple los requisitos mínimos.";
+  }
+  return mensaje;
+}
+
+logoutBtn.addEventListener("click", async () => {
+  await supabaseClient.auth.signOut();
+});
+
+// Reacciona automáticamente cuando el usuario inicia o cierra sesión
+supabaseClient.auth.onAuthStateChange((_event, session) => {
+  if (session) {
+    mostrarApp(session.user);
+  } else {
+    mostrarAuth();
+  }
+});
+
+function mostrarApp(user) {
+  authSection.hidden = true;
+  appSection.hidden = false;
+  userEmailDisplay.textContent = user.email;
+  recargarYRenderizar();
+}
+
+function mostrarAuth() {
+  appSection.hidden = true;
+  authSection.hidden = false;
+  authForm.reset();
+  modoAuth = "login";
+  actualizarTextosAuth();
+}
+
+// =========================================================
+//                  GESTIÓN DE TAREAS (CRUD)
+// =========================================================
+
 function generarId() {
   return `tarea-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
@@ -50,9 +170,7 @@ const ETIQUETAS_PRIORIDAD = {
   alta: "Prioridad alta",
 };
 
-// Capa de datos (Fase 2: Supabase / CRUD real) 
-
-// READ: trae todas las tareas desde Supabase
+// READ: trae solo las tareas del usuario logueado (RLS ya filtra, pero ordenamos)
 async function cargarTareas() {
   const { data, error } = await supabaseClient
     .from("tasks")
@@ -61,11 +179,9 @@ async function cargarTareas() {
 
   if (error) {
     console.error("Error al cargar tareas:", error.message);
-    alert("No se pudieron cargar las tareas. Revisa la consola para más detalles.");
     return [];
   }
 
-  // Traducimos los nombres de columna 
   return data.map((row) => ({
     id: row.id,
     title: row.title,
@@ -77,8 +193,10 @@ async function cargarTareas() {
   }));
 }
 
-// inserta una nueva tarea en Supabase
+// CREATE
 async function crearTarea({ title, description, dueDate, priority }) {
+  const { data: userData } = await supabaseClient.auth.getUser();
+
   const nuevaTarea = {
     id: generarId(),
     title: title.trim(),
@@ -86,20 +204,21 @@ async function crearTarea({ title, description, dueDate, priority }) {
     due_date: dueDate || null,
     priority,
     status: "pendiente",
+    user_id: userData.user.id,
   };
 
   const { error } = await supabaseClient.from("tasks").insert(nuevaTarea);
 
   if (error) {
     console.error("Error al crear tarea:", error.message);
-    alert("No se pudo crear la tarea. Revisa la consola para más detalles.");
+    alert("No se pudo crear la tarea.");
     return;
   }
 
   await recargarYRenderizar();
 }
 
-// cambia el estado (pendiente <-> completada)
+// UPDATE
 async function alternarEstadoTarea(id) {
   const tarea = tareas.find((t) => t.id === id);
   if (!tarea) return;
@@ -113,20 +232,20 @@ async function alternarEstadoTarea(id) {
 
   if (error) {
     console.error("Error al actualizar tarea:", error.message);
-    alert("No se pudo actualizar la tarea. Revisa la consola para más detalles.");
+    alert("No se pudo actualizar la tarea.");
     return;
   }
 
   await recargarYRenderizar();
 }
 
-
+// DELETE
 async function eliminarTarea(id) {
   const { error } = await supabaseClient.from("tasks").delete().eq("id", id);
 
   if (error) {
     console.error("Error al eliminar tarea:", error.message);
-    alert("No se pudo eliminar la tarea. Revisa la consola para más detalles.");
+    alert("No se pudo eliminar la tarea.");
     return;
   }
 
@@ -138,50 +257,40 @@ async function recargarYRenderizar() {
   renderizar();
 }
 
-
+// ---------- Validación ----------
 function validarFormulario(titulo, descripcion) {
   let esValido = true;
 
   errorTitulo.textContent = "";
   errorDescripcion.textContent = "";
-  tituloInput.classList.remove("is-invalid");
-  descripcionInput.classList.remove("is-invalid");
 
   if (titulo.trim().length === 0) {
     errorTitulo.textContent = "El título es obligatorio.";
-    tituloInput.classList.add("is-invalid");
     esValido = false;
   } else if (titulo.trim().length > MAX_LONGITUD_TITULO) {
     errorTitulo.textContent = `El título no puede superar ${MAX_LONGITUD_TITULO} caracteres.`;
-    tituloInput.classList.add("is-invalid");
     esValido = false;
   }
 
   if (descripcion.trim().length > MAX_LONGITUD_DESCRIPCION) {
     errorDescripcion.textContent = `La descripción no puede superar ${MAX_LONGITUD_DESCRIPCION} caracteres.`;
-    descripcionInput.classList.add("is-invalid");
     esValido = false;
   }
 
   return esValido;
 }
 
+// ---------- Render ----------
 function obtenerTareasFiltradas() {
-  if (filtroActual === "pendiente") {
-    return tareas.filter((t) => t.status === "pendiente");
-  }
-  if (filtroActual === "completada") {
-    return tareas.filter((t) => t.status === "completada");
-  }
+  if (filtroActual === "pendiente") return tareas.filter((t) => t.status === "pendiente");
+  if (filtroActual === "completada") return tareas.filter((t) => t.status === "completada");
   return tareas;
 }
 
 function construirElementoTarea(task) {
   const li = document.createElement("li");
   li.className = `task-item task-item--${task.priority}`;
-  if (task.status === "completada") {
-    li.classList.add("task-item--done");
-  }
+  if (task.status === "completada") li.classList.add("task-item--done");
   li.dataset.id = task.id;
 
   const metaParts = [
@@ -214,7 +323,6 @@ function construirElementoTarea(task) {
 
 function renderizar() {
   const filtered = obtenerTareasFiltradas();
-
   listaTareas.innerHTML = "";
   filtered.forEach((task) => listaTareas.appendChild(construirElementoTarea(task)));
 
@@ -230,6 +338,7 @@ function renderizar() {
       : "No hay tareas que coincidan con este filtro.";
 }
 
+// ---------- Eventos de la app de tareas ----------
 formulario.addEventListener("submit", async (event) => {
   event.preventDefault();
 
@@ -259,5 +368,16 @@ botonesFiltro.forEach((button) => {
   });
 });
 
+// =========================================================
+//                     INICIALIZACIÓN
+// =========================================================
+actualizarTextosAuth();
 
-recargarYRenderizar();
+// Revisa si ya había una sesión activa (por ejemplo, al recargar la página)
+supabaseClient.auth.getSession().then(({ data: { session } }) => {
+  if (session) {
+    mostrarApp(session.user);
+  } else {
+    mostrarAuth();
+  }
+});

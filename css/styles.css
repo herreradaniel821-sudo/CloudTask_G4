@@ -461,3 +461,148 @@ textarea.is-invalid {
   border-radius: var(--pixel-radius);
   box-shadow: var(--pixel-shadow-offset) var(--pixel-shadow-offset) 0 var(--pixel-black);
 }
+
+/* ==========================================================================
+   Auth screen (login / registro) — mismo tema pixel/neon arcade
+   ========================================================================== */
+
+/* FIX CRÍTICO: sin esto, [hidden] pierde contra ".app-main { display: grid }"
+   y el formulario de login no desaparece al iniciar sesión. */
+#auth-section[hidden],
+#app-section[hidden] {
+  display: none !important;
+}
+
+/* ---------- Layout general: footer siempre pegado abajo ----------
+   En vez de calcular alturas "a ojo", usamos flexbox en el body:
+   header y footer miden lo que necesiten, y la sección visible en
+   el medio (login o tareas) crece para ocupar el espacio restante. */
+html, body {
+  height: 100%;
+}
+
+body {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+#auth-section,
+#app-section {
+  flex: 1 0 auto;
+}
+
+.app-footer {
+  flex-shrink: 0;
+}
+
+.app-main--auth {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.panel--auth {
+  width: 100%;
+  max-width: 380px;
+  border-color: var(--pixel-purple);
+  text-align: left;
+  box-shadow: 8px 8px 0 var(--pixel-black);
+}
+
+.panel--auth h2 {
+  color: var(--pixel-purple);
+  text-align: center;
+  margin-bottom: 22px;
+  font-size: 16px;
+}
+
+.auth-toggle {
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 2px dashed #333;
+  text-align: center;
+  font-size: 15px;
+  color: #9aa4b8;
+}
+
+.auth-toggle__link {
+  margin-left: 6px;
+  padding: 0;
+  border: none;
+  background: none;
+  font-family: var(--font-body);
+  font-size: 15px;
+  color: var(--pixel-cyan);
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.auth-toggle__link:hover {
+  color: var(--pixel-lime);
+}
+
+/* ---------- barra de usuario (arriba de la app, cuando ya inició sesión) ---------- */
+
+.user-bar {
+  max-width: 1100px;
+  margin: 16px auto 0;
+  padding: 10px 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 14px;
+  background: var(--pixel-bg-alt);
+  border: var(--pixel-border) solid var(--pixel-black);
+  border-radius: var(--pixel-radius);
+  box-shadow: 4px 4px 0 var(--pixel-black);
+}
+
+.user-bar::before {
+  content: "▸ Sesión activa:";
+  font-size: 11px;
+  color: var(--pixel-lime);
+  font-family: var(--font-display);
+}
+
+.user-bar__email {
+  flex: 1;
+  font-size: 16px;
+  color: var(--pixel-ink);
+}
+
+.btn--secondary {
+  padding: 8px 14px;
+  font-size: 10px;
+  letter-spacing: 1px;
+  color: var(--pixel-ink);
+  background: var(--pixel-black);
+  border: var(--pixel-border) solid #333;
+  border-radius: var(--pixel-radius);
+  cursor: pointer;
+  box-shadow: 3px 3px 0 var(--pixel-black);
+  transition: transform 0.05s ease, box-shadow 0.05s ease;
+  white-space: nowrap;
+}
+
+.btn--secondary:hover {
+  border-color: var(--pixel-pink);
+  color: var(--pixel-pink);
+}
+
+.btn--secondary:active {
+  transform: translate(3px, 3px);
+  box-shadow: 0 0 0 var(--pixel-black);
+}
+
+@media (max-width: 500px) {
+  .user-bar {
+    flex-direction: column;
+    align-items: stretch;
+    text-align: center;
+  }
+  .user-bar::before {
+    display: none;
+  }
+}
