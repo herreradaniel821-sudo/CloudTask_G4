@@ -46,6 +46,32 @@ const contadorTareas = document.getElementById("contador-tareas");
 const estadoVacio = document.getElementById("estado-vacio");
 const botonesFiltro = document.querySelectorAll(".filter-btn");
 
+// ---------- Referencias al DOM: Sidebar / navegación entre vistas ----------
+const menuToggleBtn = document.getElementById("menu-toggle-btn");
+const sidebarOverlay = document.getElementById("sidebar-overlay");
+const botonesNav = document.querySelectorAll(".nav-btn");
+const vistas = document.querySelectorAll(".view");
+
+// ---------- Referencias al DOM: Modal "Nueva tarea" ----------
+const fabNuevaTarea = document.getElementById("fab-nueva-tarea");
+const taskModalOverlay = document.getElementById("task-modal-overlay");
+const closeTaskModalBtn = document.getElementById("close-task-modal-btn");
+
+// ---------- Referencias al DOM: Ajustes ----------
+const settingDarkMode = document.getElementById("setting-dark-mode");
+const settingCompactMode = document.getElementById("setting-compact-mode");
+const settingConfirmDelete = document.getElementById("setting-confirm-delete");
+const settingSortOrder = document.getElementById("setting-sort-order");
+
+// ---------- Referencias al DOM: Calendario ----------
+const calendarPrevBtn = document.getElementById("calendar-prev-btn");
+const calendarNextBtn = document.getElementById("calendar-next-btn");
+const calendarMonthLabel = document.getElementById("calendar-month-label");
+const calendarGrid = document.getElementById("calendar-grid");
+const calendarDayTasksTitle = document.getElementById("calendar-day-tasks-title");
+const calendarDayTasksList = document.getElementById("calendar-day-tasks");
+const calendarDayEmpty = document.getElementById("calendar-day-empty");
+
 // =========================================================
 //                     AUTENTICACIÓN
 // =========================================================
@@ -172,6 +198,70 @@ function mostrarAuth() {
 }
 
 // =========================================================
+//        NAVEGACIÓN: SIDEBAR (móvil) Y CAMBIO DE VISTAS
+// =========================================================
+
+function abrirSidebar() {
+  appSection.classList.add("sidebar-open");
+}
+
+function cerrarSidebar() {
+  appSection.classList.remove("sidebar-open");
+}
+
+if (menuToggleBtn) {
+  menuToggleBtn.addEventListener("click", () => {
+    if (appSection.classList.contains("sidebar-open")) {
+      cerrarSidebar();
+    } else {
+      abrirSidebar();
+    }
+  });
+}
+
+if (sidebarOverlay) {
+  sidebarOverlay.addEventListener("click", cerrarSidebar);
+}
+
+botonesNav.forEach((boton) => {
+  boton.addEventListener("click", () => {
+    const vistaSeleccionada = boton.dataset.view;
+
+    botonesNav.forEach((b) => b.classList.remove("is-active"));
+    boton.classList.add("is-active");
+
+    vistas.forEach((vista) => {
+      vista.hidden = vista.id !== `view-${vistaSeleccionada}`;
+    });
+
+    cerrarSidebar();
+
+    if (vistaSeleccionada === "calendario") {
+      renderizarCalendario();
+    }
+  });
+});
+
+// =========================================================
+//        MODAL "NUEVA TAREA" (activado desde el botón +)
+// =========================================================
+
+function abrirModalTarea() {
+  taskModalOverlay.hidden = false;
+}
+
+function cerrarModalTarea() {
+  taskModalOverlay.hidden = true;
+}
+
+fabNuevaTarea.addEventListener("click", abrirModalTarea);
+closeTaskModalBtn.addEventListener("click", cerrarModalTarea);
+
+taskModalOverlay.addEventListener("click", (event) => {
+  if (event.target === taskModalOverlay) cerrarModalTarea();
+});
+
+// =========================================================
 //                  GESTIÓN DE TAREAS (CRUD)
 // =========================================================
 
@@ -275,6 +365,10 @@ async function alternarEstadoTarea(id) {
 
 // DELETE
 async function eliminarTarea(id) {
+  if (ajustes.confirmDelete && !confirm("¿Seguro que quieres eliminar esta tarea?")) {
+    return;
+  }
+
   const { error } = await supabaseClient.from("tasks").delete().eq("id", id);
 
   if (error) {
@@ -289,6 +383,10 @@ async function eliminarTarea(id) {
 async function recargarYRenderizar() {
   tareas = await cargarTareas();
   renderizar();
+  renderizarCalendario();
+  if (diaCalendarioSeleccionado) {
+    renderizarTareasDelDia(diaCalendarioSeleccionado);
+  }
 }
 
 // ---------- Validación ----------
@@ -316,9 +414,10 @@ function validarFormulario(titulo, descripcion) {
 
 // ---------- Render ----------
 function obtenerTareasFiltradas() {
-  if (filtroActual === "pendiente") return tareas.filter((t) => t.status === "pendiente");
-  if (filtroActual === "completada") return tareas.filter((t) => t.status === "completada");
-  return tareas;
+  let resultado = tareas;
+  if (filtroActual === "pendiente") resultado = tareas.filter((t) => t.status === "pendiente");
+  if (filtroActual === "completada") resultado = tareas.filter((t) => t.status === "completada");
+  return ordenarTareas(resultado);
 }
 
 function construirElementoTarea(task) {
@@ -393,7 +492,7 @@ formulario.addEventListener("submit", async (event) => {
   } finally {
     formulario.reset();
     prioridadInput.value = "media";
-    tituloInput.focus();
+    cerrarModalTarea();
   }
 });
 
@@ -407,8 +506,201 @@ botonesFiltro.forEach((button) => {
 });
 
 // =========================================================
+//                        AJUSTES
+// =========================================================
+
+const CLAVE_AJUSTES = "cloudtasks-ajustes";
+
+const AJUSTES_POR_DEFECTO = {
+  darkMode: false,
+  compactMode: false,
+  confirmDelete: true,
+  sortOrder: "created_desc",
+};
+
+let ajustes = cargarAjustesGuardados();
+
+function cargarAjustesGuardados() {
+  try {
+    const guardado = JSON.parse(localStorage.getItem(CLAVE_AJUSTES));
+    return { ...AJUSTES_POR_DEFECTO, ...(guardado || {}) };
+  } catch {
+    return { ...AJUSTES_POR_DEFECTO };
+  }
+}
+
+function guardarAjustes() {
+  localStorage.setItem(CLAVE_AJUSTES, JSON.stringify(ajustes));
+}
+
+function aplicarTemaOscuro() {
+  document.documentElement.setAttribute("data-theme", ajustes.darkMode ? "dark" : "light");
+}
+
+function aplicarModoCompacto() {
+  document.body.classList.toggle("is-compact", ajustes.compactMode);
+}
+
+function aplicarControlesAjustes() {
+  settingDarkMode.checked = ajustes.darkMode;
+  settingCompactMode.checked = ajustes.compactMode;
+  settingConfirmDelete.checked = ajustes.confirmDelete;
+  settingSortOrder.value = ajustes.sortOrder;
+}
+
+function inicializarAjustes() {
+  aplicarControlesAjustes();
+  aplicarTemaOscuro();
+  aplicarModoCompacto();
+}
+
+settingDarkMode.addEventListener("change", () => {
+  ajustes.darkMode = settingDarkMode.checked;
+  guardarAjustes();
+  aplicarTemaOscuro();
+});
+
+settingCompactMode.addEventListener("change", () => {
+  ajustes.compactMode = settingCompactMode.checked;
+  guardarAjustes();
+  aplicarModoCompacto();
+});
+
+settingConfirmDelete.addEventListener("change", () => {
+  ajustes.confirmDelete = settingConfirmDelete.checked;
+  guardarAjustes();
+});
+
+settingSortOrder.addEventListener("change", () => {
+  ajustes.sortOrder = settingSortOrder.value;
+  guardarAjustes();
+  renderizar();
+});
+
+function ordenarTareas(lista) {
+  const copia = [...lista];
+
+  if (ajustes.sortOrder === "due_date") {
+    copia.sort((a, b) => {
+      if (!a.dueDate && !b.dueDate) return 0;
+      if (!a.dueDate) return 1;
+      if (!b.dueDate) return -1;
+      return a.dueDate.localeCompare(b.dueDate);
+    });
+  } else if (ajustes.sortOrder === "priority") {
+    const orden = { alta: 0, media: 1, baja: 2 };
+    copia.sort((a, b) => orden[a.priority] - orden[b.priority]);
+  }
+  // "created_desc" ya viene ordenado así desde la consulta a Supabase.
+
+  return copia;
+}
+
+// =========================================================
+//                        CALENDARIO
+// =========================================================
+
+let fechaCalendarioVisible = new Date();
+let diaCalendarioSeleccionado = null; // "YYYY-MM-DD"
+
+const NOMBRES_MES = [
+  "enero", "febrero", "marzo", "abril", "mayo", "junio",
+  "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre",
+];
+
+function formatearFechaISO(date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function renderizarCalendario() {
+  if (!calendarGrid) return;
+
+  const year = fechaCalendarioVisible.getFullYear();
+  const month = fechaCalendarioVisible.getMonth();
+
+  calendarMonthLabel.textContent = `${NOMBRES_MES[month]} ${year}`;
+
+  const primerDiaSemana = new Date(year, month, 1).getDay(); // 0 = domingo
+  const diasEnMes = new Date(year, month + 1, 0).getDate();
+  const hoyISO = formatearFechaISO(new Date());
+  const fechasConTareas = new Set(tareas.filter((t) => t.dueDate).map((t) => t.dueDate));
+
+  calendarGrid.innerHTML = "";
+
+  for (let i = 0; i < primerDiaSemana; i++) {
+    const relleno = document.createElement("span");
+    relleno.className = "calendar-day calendar-day--muted";
+    calendarGrid.appendChild(relleno);
+  }
+
+  for (let dia = 1; dia <= diasEnMes; dia++) {
+    const fechaISO = formatearFechaISO(new Date(year, month, dia));
+
+    const boton = document.createElement("button");
+    boton.type = "button";
+    boton.className = "calendar-day";
+    if (fechaISO === hoyISO) boton.classList.add("calendar-day--today");
+    if (fechaISO === diaCalendarioSeleccionado) boton.classList.add("calendar-day--selected");
+
+    const numero = document.createElement("span");
+    numero.textContent = String(dia);
+    boton.appendChild(numero);
+
+    if (fechasConTareas.has(fechaISO)) {
+      const punto = document.createElement("span");
+      punto.className = "calendar-day__dot";
+      boton.appendChild(punto);
+    }
+
+    boton.addEventListener("click", () => {
+      diaCalendarioSeleccionado = fechaISO;
+      renderizarCalendario();
+      renderizarTareasDelDia(fechaISO);
+    });
+
+    calendarGrid.appendChild(boton);
+  }
+}
+
+function renderizarTareasDelDia(fechaISO) {
+  const tareasDelDia = tareas.filter((t) => t.dueDate === fechaISO);
+  calendarDayTasksTitle.textContent = `Tareas para el ${formatearFecha(fechaISO)}`;
+
+  calendarDayTasksList.innerHTML = "";
+  tareasDelDia.forEach((task) => calendarDayTasksList.appendChild(construirElementoTarea(task)));
+
+  calendarDayEmpty.hidden = tareasDelDia.length !== 0;
+}
+
+if (calendarPrevBtn) {
+  calendarPrevBtn.addEventListener("click", () => {
+    fechaCalendarioVisible = new Date(
+      fechaCalendarioVisible.getFullYear(),
+      fechaCalendarioVisible.getMonth() - 1,
+      1
+    );
+    renderizarCalendario();
+  });
+}
+
+if (calendarNextBtn) {
+  calendarNextBtn.addEventListener("click", () => {
+    fechaCalendarioVisible = new Date(
+      fechaCalendarioVisible.getFullYear(),
+      fechaCalendarioVisible.getMonth() + 1,
+      1
+    );
+    renderizarCalendario();
+  });
+}
+
+// =========================================================
 //                     INICIALIZACIÓN
 // =========================================================
+inicializarAjustes();
 actualizarTextosAuth();
 
 supabaseClient.auth.getSession().then(({ data: { session } }) => {
