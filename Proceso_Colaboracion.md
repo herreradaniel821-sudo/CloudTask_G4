@@ -15,7 +15,9 @@ Sitio en producción: **[cloudtask.website](https://www.cloudtask.website)**
 | Daniel Herrera |
 | Victoria Mejía Melo |
 | Gloribeth Rentería Ramírez |
-| *(agregar demás integrantes)* |
+| Daniel Montenegro |
+| Bryan Moreno Diaz |
+
 
 ---
 
