@@ -15,6 +15,8 @@ const MAX_LONGITUD_DESCRIPCION = 300;
 let tareas = [];
 let filtroActual = "todas";
 let modoAuth = "login"; // "login" | "registro"
+let esAdmin = false;
+let filtroUsuarioActual = "todos";
 
 // ---------- Referencias al DOM: Autenticación ----------
 const authSection = document.getElementById("auth-section");
@@ -31,6 +33,7 @@ const authToggleBtn = document.getElementById("auth-toggle-btn");
 const modeLabel = document.querySelector("[data-mode-label]");
 const modeQuestion = document.querySelector("[data-mode-question]");
 const userEmailDisplay = document.getElementById("user-email-display");
+const adminBadge = document.getElementById("admin-badge");
 const logoutBtn = document.getElementById("logout-btn");
 
 // ---------- Referencias al DOM: App de tareas ----------
@@ -45,6 +48,9 @@ const listaTareas = document.getElementById("lista-tareas");
 const contadorTareas = document.getElementById("contador-tareas");
 const estadoVacio = document.getElementById("estado-vacio");
 const botonesFiltro = document.querySelectorAll(".filter-btn");
+const listTitle = document.getElementById("list-title");
+const adminUserFilterContainer = document.getElementById("admin-user-filter-container");
+const adminUserFilterSelect = document.getElementById("admin-user-filter");
 
 // ---------- Referencias al DOM: Sidebar / navegación entre vistas ----------
 const menuToggleBtn = document.getElementById("menu-toggle-btn");
@@ -56,6 +62,8 @@ const vistas = document.querySelectorAll(".view");
 const fabNuevaTarea = document.getElementById("fab-nueva-tarea");
 const taskModalOverlay = document.getElementById("task-modal-overlay");
 const closeTaskModalBtn = document.getElementById("close-task-modal-btn");
+const formTitleEl = document.getElementById("form-title");
+const taskFormSubmitBtn = document.getElementById("task-form-submit-btn");
 
 // ---------- Referencias al DOM: Ajustes ----------
 const settingDarkMode = document.getElementById("setting-dark-mode");
@@ -181,11 +189,45 @@ supabaseClient.auth.onAuthStateChange((_event, session) => {
   }
 });
 
-function mostrarApp(user) {
+// Consulta la tabla "profiles" para saber si el usuario es administrador.
+// Este dato NO se puede falsificar desde el navegador: solo se modifica
+// directamente desde el panel de Supabase.
+async function obtenerPerfil(userId) {
+  const { data, error } = await supabaseClient
+    .from("profiles")
+    .select("is_admin, full_name, email")
+    .eq("id", userId)
+    .single();
+
+  if (error) {
+    console.error("Error al obtener el perfil:", error.message);
+    return { is_admin: false };
+  }
+  return data;
+}
+
+async function mostrarApp(user) {
   authSection.hidden = true;
   appSection.hidden = false;
-  const nombre = user.user_metadata && user.user_metadata.full_name;
+
+  const perfil = await obtenerPerfil(user.id);
+  esAdmin = !!perfil.is_admin;
+
+  const nombre = perfil.full_name || (user.user_metadata && user.user_metadata.full_name);
   userEmailDisplay.textContent = nombre ? `${nombre} (${user.email})` : user.email;
+
+  if (esAdmin) {
+    adminBadge.hidden = false;
+    fabNuevaTarea.hidden = true;
+    listTitle.textContent = "Todas las tareas";
+    adminUserFilterContainer.hidden = false;
+  } else {
+    adminBadge.hidden = true;
+    fabNuevaTarea.hidden = false;
+    listTitle.textContent = "Mis tareas";
+    adminUserFilterContainer.hidden = true;
+  }
+
   recargarYRenderizar();
 }
 
@@ -194,6 +236,7 @@ function mostrarAuth() {
   authSection.hidden = false;
   authForm.reset();
   modoAuth = "login";
+  esAdmin = false;
   actualizarTextosAuth();
 }
 
@@ -246,15 +289,34 @@ botonesNav.forEach((boton) => {
 //        MODAL "NUEVA TAREA" (activado desde el botón +)
 // =========================================================
 
-function abrirModalTarea() {
+// Guarda el id de la tarea que se está editando; null = se está creando una nueva
+let tareaEditandoId = null;
+
+function abrirModalTarea(tarea = null) {
+  if (tarea) {
+    tareaEditandoId = tarea.id;
+    formTitleEl.textContent = "Editar tarea";
+    taskFormSubmitBtn.textContent = "Guardar cambios";
+    tituloInput.value = tarea.title;
+    descripcionInput.value = tarea.description || "";
+    fechaLimiteInput.value = tarea.dueDate || "";
+    prioridadInput.value = tarea.priority;
+  } else {
+    tareaEditandoId = null;
+    formTitleEl.textContent = "Nueva tarea";
+    taskFormSubmitBtn.textContent = "Agregar tarea";
+    formulario.reset();
+    prioridadInput.value = "media";
+  }
   taskModalOverlay.hidden = false;
 }
 
 function cerrarModalTarea() {
   taskModalOverlay.hidden = true;
+  tareaEditandoId = null;
 }
 
-fabNuevaTarea.addEventListener("click", abrirModalTarea);
+fabNuevaTarea.addEventListener("click", () => abrirModalTarea());
 closeTaskModalBtn.addEventListener("click", cerrarModalTarea);
 
 taskModalOverlay.addEventListener("click", (event) => {
@@ -288,6 +350,11 @@ const ETIQUETAS_PRIORIDAD = {
 };
 
 // READ
+// Para un usuario normal: solo trae sus propias tareas (las políticas RLS
+// de Supabase ya se encargan de esto). Para un administrador: trae TODAS
+// las tareas, y además consulta la tabla "profiles" por separado para
+// identificar de quién es cada una (más simple y confiable que pedirle
+// a Supabase que las una automáticamente).
 async function cargarTareas() {
   const { data, error } = await supabaseClient
     .from("tasks")
@@ -300,15 +367,35 @@ async function cargarTareas() {
     return [];
   }
 
-  return data.map((row) => ({
-    id: row.id,
-    title: row.title,
-    description: row.description,
-    dueDate: row.due_date,
-    priority: row.priority,
-    status: row.status,
-    created_at: row.created_at,
-  }));
+  let mapaPerfiles = {};
+  if (esAdmin) {
+    const { data: perfiles, error: errorPerfiles } = await supabaseClient
+      .from("profiles")
+      .select("id, full_name, email");
+
+    if (errorPerfiles) {
+      console.error("Error al cargar perfiles:", errorPerfiles.message);
+    } else {
+      perfiles.forEach((p) => {
+        mapaPerfiles[p.id] = p;
+      });
+    }
+  }
+
+  return data.map((row) => {
+    const perfil = mapaPerfiles[row.user_id];
+    return {
+      id: row.id,
+      title: row.title,
+      description: row.description,
+      dueDate: row.due_date,
+      priority: row.priority,
+      status: row.status,
+      created_at: row.created_at,
+      ownerEmail: perfil ? perfil.email : null,
+      ownerName: perfil ? (perfil.full_name || perfil.email) : null,
+    };
+  });
 }
 
 // CREATE
@@ -342,7 +429,7 @@ async function crearTarea({ title, description, dueDate, priority }) {
   await recargarYRenderizar();
 }
 
-// UPDATE
+// UPDATE (estado): funciona igual para dueño o administrador; RLS decide si se permite.
 async function alternarEstadoTarea(id) {
   const tarea = tareas.find((t) => t.id === id);
   if (!tarea) return;
@@ -352,6 +439,29 @@ async function alternarEstadoTarea(id) {
   const { error } = await supabaseClient
     .from("tasks")
     .update({ status: nuevoEstado })
+    .eq("id", id);
+
+  if (error) {
+    console.error("Error al actualizar tarea:", error.message);
+    alert("No se pudo actualizar la tarea: " + error.message);
+    return;
+  }
+
+  await recargarYRenderizar();
+}
+
+// UPDATE (datos completos): título, descripción, fecha límite y prioridad.
+// Funciona igual para el dueño de la tarea o para un administrador editando
+// la tarea de otro usuario; las políticas RLS ya lo permiten en ambos casos.
+async function actualizarTarea(id, { title, description, dueDate, priority }) {
+  const { error } = await supabaseClient
+    .from("tasks")
+    .update({
+      title: title.trim(),
+      description: description.trim() || null,
+      due_date: dueDate || null,
+      priority,
+    })
     .eq("id", id);
 
   if (error) {
@@ -382,6 +492,9 @@ async function eliminarTarea(id) {
 
 async function recargarYRenderizar() {
   tareas = await cargarTareas();
+  if (esAdmin) {
+    poblarFiltroDeUsuarios();
+  }
   renderizar();
   renderizarCalendario();
   if (diaCalendarioSeleccionado) {
@@ -415,10 +528,39 @@ function validarFormulario(titulo, descripcion) {
 // ---------- Render ----------
 function obtenerTareasFiltradas() {
   let resultado = tareas;
-  if (filtroActual === "pendiente") resultado = tareas.filter((t) => t.status === "pendiente");
-  if (filtroActual === "completada") resultado = tareas.filter((t) => t.status === "completada");
+  if (filtroActual === "pendiente") resultado = resultado.filter((t) => t.status === "pendiente");
+  if (filtroActual === "completada") resultado = resultado.filter((t) => t.status === "completada");
+  if (esAdmin && filtroUsuarioActual !== "todos") {
+    resultado = resultado.filter((t) => t.ownerEmail === filtroUsuarioActual);
+  }
   return ordenarTareas(resultado);
 }
+
+// Llena el <select> de "Filtrar por usuario" con los usuarios que
+// realmente tienen tareas, evitando mostrar opciones vacías.
+function poblarFiltroDeUsuarios() {
+  const usuariosUnicos = new Map();
+  tareas.forEach((t) => {
+    if (t.ownerEmail && !usuariosUnicos.has(t.ownerEmail)) {
+      usuariosUnicos.set(t.ownerEmail, t.ownerName || t.ownerEmail);
+    }
+  });
+
+  const valorActual = adminUserFilterSelect.value;
+  adminUserFilterSelect.innerHTML = '<option value="todos">Todos los usuarios</option>';
+  usuariosUnicos.forEach((nombre, email) => {
+    const option = document.createElement("option");
+    option.value = email;
+    option.textContent = nombre;
+    adminUserFilterSelect.appendChild(option);
+  });
+  adminUserFilterSelect.value = valorActual || "todos";
+}
+
+adminUserFilterSelect.addEventListener("change", () => {
+  filtroUsuarioActual = adminUserFilterSelect.value;
+  renderizar();
+});
 
 function construirElementoTarea(task) {
   const li = document.createElement("li");
@@ -431,6 +573,9 @@ function construirElementoTarea(task) {
   ];
   if (task.dueDate) {
     metaParts.push(`<span class="badge badge--date">Vence: ${formatearFecha(task.dueDate)}</span>`);
+  }
+  if (esAdmin && task.ownerName) {
+    metaParts.push(`<span class="badge badge--owner">👤 ${escapeHtml(task.ownerName)}</span>`);
   }
 
   li.innerHTML = `
@@ -445,10 +590,16 @@ function construirElementoTarea(task) {
       ${task.description ? `<p class="task-item__description">${escapeHtml(task.description)}</p>` : ""}
       <div class="task-item__meta">${metaParts.join("")}</div>
     </div>
-    <button type="button" class="task-item__delete" aria-label="Eliminar tarea">✕</button>
+    <div class="task-item__actions">
+      <button type="button" class="task-item__edit" aria-label="Editar tarea">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4Z"/></svg>
+      </button>
+      <button type="button" class="task-item__delete" aria-label="Eliminar tarea">✕</button>
+    </div>
   `;
 
   li.querySelector(".task-item__check").addEventListener("change", () => alternarEstadoTarea(task.id));
+  li.querySelector(".task-item__edit").addEventListener("click", () => abrirModalTarea(task));
   li.querySelector(".task-item__delete").addEventListener("click", () => eliminarTarea(task.id));
 
   return li;
@@ -481,14 +632,23 @@ formulario.addEventListener("submit", async (event) => {
   if (!validarFormulario(titulo, descripcion)) return;
 
   // El "finally" garantiza que el formulario SIEMPRE se limpie,
-  // haya funcionado la creación de la tarea o no.
+  // haya funcionado la operación o no.
   try {
-    await crearTarea({
-      title: titulo,
-      description: descripcion,
-      dueDate: fechaLimiteInput.value,
-      priority: prioridadInput.value,
-    });
+    if (tareaEditandoId) {
+      await actualizarTarea(tareaEditandoId, {
+        title: titulo,
+        description: descripcion,
+        dueDate: fechaLimiteInput.value,
+        priority: prioridadInput.value,
+      });
+    } else {
+      await crearTarea({
+        title: titulo,
+        description: descripcion,
+        dueDate: fechaLimiteInput.value,
+        priority: prioridadInput.value,
+      });
+    }
   } finally {
     formulario.reset();
     prioridadInput.value = "media";
