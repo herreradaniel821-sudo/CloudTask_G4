@@ -5,7 +5,7 @@
 - Daniel Herrera
 - Victoria Mejía Melo
 - Gloribeth Rentería Ramírez
-- (agregar demás integrantes)
+- Daniel Montenegro Gil
 
 
 ## Descripción
