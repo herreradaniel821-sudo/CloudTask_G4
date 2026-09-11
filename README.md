@@ -6,6 +6,7 @@
 - Victoria Mejía Melo
 - Gloribeth Rentería Ramírez
 - Daniel Montenegro Gil
+- Bryan Diaz Moreno
 
 
 ## Descripción
