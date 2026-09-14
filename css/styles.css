@@ -1119,7 +1119,7 @@ textarea.is-invalid {
   margin-top: 2px;
   padding: 2px 10px;
   border-radius: 999px;
-  background: var(--primary, #4f46e5);
+  background: var(--primary, #6E56CF);
   color: #fff;
   font-size: 11px;
   font-weight: 600;
@@ -1130,12 +1130,273 @@ textarea.is-invalid {
   margin-bottom: 10px;
 }
 
-.badge--owner {
-  background: #ede9fe;
-  color: #6d28d9;
+.custom-select {
+  position: relative;
 }
 
+.custom-select__trigger {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 12px;
+  background: var(--surface-alt);
+  color: var(--ink);
+  font-family: inherit;
+  font-size: 14.5px;
+  text-align: left;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
 
+.custom-select__trigger:hover {
+  border-color: var(--primary);
+}
+
+.custom-select__trigger:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px var(--primary-soft);
+}
+
+.custom-select__chevron {
+  flex: none;
+  color: var(--muted);
+  transition: transform 0.15s ease;
+}
+
+.custom-select__trigger[aria-expanded="true"] .custom-select__chevron {
+  transform: rotate(180deg);
+}
+
+.custom-select__list {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  z-index: 30;
+  max-height: 220px;
+  overflow-y: auto;
+  margin: 0;
+  padding: 6px;
+  list-style: none;
+  background: var(--surface);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-lg);
+}
+
+.custom-select__list[hidden] {
+  display: none !important;
+}
+
+.custom-select__option {
+  padding: 9px 10px;
+  font-size: 14px;
+  color: var(--ink);
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.custom-select__option:hover {
+  background: var(--primary-soft);
+}
+
+.custom-select__option.is-selected {
+  background: var(--primary);
+  color: #fff;
+  font-weight: 600;
+}
+
+/* ---------- Resaltado de coincidencias en la búsqueda ---------- */
+
+.search-highlight {
+  background: var(--primary-soft);
+  color: var(--primary);
+  font-weight: 700;
+  border-radius: 3px;
+  padding: 0 2px;
+}
+
+/* ---------- Esqueleto de carga ---------- */
+
+.task-item--skeleton {
+  pointer-events: none;
+}
+
+.skeleton-box {
+  background: linear-gradient(90deg, var(--surface-alt) 25%, var(--border) 50%, var(--surface-alt) 75%);
+  background-size: 200% 100%;
+  animation: skeleton-pulse 1.3s ease-in-out infinite;
+  border-radius: 6px;
+}
+
+.skeleton-box--check {
+  width: 20px;
+  height: 20px;
+  flex: none;
+  border-radius: 5px;
+}
+
+.skeleton-box--title {
+  width: 60%;
+  height: 14px;
+  margin-bottom: 10px;
+}
+
+.skeleton-box--meta {
+  width: 35%;
+  height: 11px;
+}
+
+@keyframes skeleton-pulse {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* ---------- Vista: Estadísticas ---------- */
+
+.panel--stats h2 {
+  margin-bottom: 18px;
+}
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 14px;
+  margin-bottom: 28px;
+}
+
+.stat-card {
+  padding: 18px 16px;
+  border-radius: var(--radius-lg, 16px);
+  background: var(--surface-alt);
+  border: 1.5px solid var(--border);
+}
+
+.stat-card__value {
+  margin: 0 0 4px;
+  font-family: var(--font-display, inherit);
+  font-size: 26px;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.stat-card__label {
+  margin: 0;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.stat-card--total { border-left: 4px solid var(--primary); }
+.stat-card--pending { border-left: 4px solid var(--prio-media); }
+.stat-card--done { border-left: 4px solid var(--prio-baja); }
+.stat-card--overdue { border-left: 4px solid var(--danger); }
+.stat-card--users { border-left: 4px solid var(--prio-alta); }
+
+.stats-section {
+  margin-top: 24px;
+}
+
+.stats-section h3 {
+  margin: 0 0 14px;
+  font-size: 14px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+#stats-users-section[hidden] {
+  display: none !important;
+}
+
+.stats-bars,
+.stats-user-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.stats-bar-row,
+.stats-user-row {
+  display: grid;
+  grid-template-columns: 90px 1fr 34px;
+  align-items: center;
+  gap: 10px;
+}
+
+.stats-user-row {
+  grid-template-columns: 140px 1fr 34px;
+}
+
+.stats-bar-row__label,
+.stats-user-row__name {
+  font-size: 13px;
+  color: var(--ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.stats-bar-row__track,
+.stats-user-row__track {
+  height: 10px;
+  background: var(--surface-alt);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.stats-bar-row__fill {
+  height: 100%;
+  border-radius: 999px;
+  background: var(--primary);
+}
+
+.stats-bar-row__fill--baja { background: var(--prio-baja); }
+.stats-bar-row__fill--media { background: var(--prio-media); }
+.stats-bar-row__fill--alta { background: var(--prio-alta); }
+
+.stats-user-row__fill {
+  height: 100%;
+  border-radius: 999px;
+  background: var(--primary);
+}
+
+.stats-bar-row__count,
+.stats-user-row__count {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+  text-align: right;
+}
+
+/* ---------- Responsivo (celular) ---------- */
+
+@media (max-width: 600px) {
+  .stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .stats-bar-row,
+  .stats-user-row {
+    grid-template-columns: 70px 1fr 28px;
+    gap: 8px;
+  }
+
+  .stats-user-row {
+    grid-template-columns: 90px 1fr 28px;
+  }
+
+  .stat-card__value {
+    font-size: 22px;
+  }
+}
 
 .badge--owner {
   background: var(--primary-soft, #EFEAFC);
@@ -1178,7 +1439,6 @@ textarea.is-invalid {
   flex: none;
 }
 
-
 /* ---------- Modal de confirmación (eliminar) ---------- */
 
 .modal--confirm {
@@ -1219,4 +1479,70 @@ textarea.is-invalid {
 
 .btn--danger:hover {
   filter: brightness(1.08);
+}
+
+/* ---------- Barra de búsqueda de tareas ---------- */
+
+.search-field {
+  position: relative;
+  margin: 4px 0 12px;
+}
+
+.search-field__icon {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--muted-soft, #9aa4b8);
+  pointer-events: none;
+}
+
+.search-field input {
+  width: 100%;
+  padding-left: 38px;
+}
+
+/* El navegador agrega una "x" nativa para borrar en type="search";
+   la dejamos, pero le damos espacio a la derecha para que no choque
+   con el ícono de lupa en pantallas angostas. */
+.search-field input[type="search"]::-webkit-search-cancel-button {
+  margin-right: 2px;
+}
+
+/* ---------- Tareas vencidas ---------- */
+
+.task-item--overdue {
+  border-left-color: var(--danger, #E5484D);
+  background: var(--prio-alta-soft, #FDEAEE);
+}
+
+.badge--overdue {
+  background: var(--danger, #E5484D);
+  color: #fff;
+  font-weight: 600;
+}
+
+/* ---------- Ajustes responsivos (celular) ---------- */
+
+@media (max-width: 600px) {
+  .search-field {
+    margin: 4px 0 10px;
+  }
+
+  .search-field input {
+    font-size: 16px; /* evita que iOS haga zoom automático al enfocar el campo */
+  }
+
+  .panel__list-header {
+    gap: 10px;
+  }
+
+  .filters {
+    width: 100%;
+  }
+
+  .filter-btn {
+    flex: 1;
+    text-align: center;
+  }
 }

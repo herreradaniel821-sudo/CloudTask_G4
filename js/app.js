@@ -17,6 +17,7 @@ let filtroActual = "todas";
 let modoAuth = "login"; // "login" | "registro"
 let esAdmin = false;
 let filtroUsuarioActual = "todos";
+let terminoBusqueda = "";
 
 // ---------- Referencias al DOM: Autenticación ----------
 const authSection = document.getElementById("auth-section");
@@ -50,13 +51,22 @@ const estadoVacio = document.getElementById("estado-vacio");
 const botonesFiltro = document.querySelectorAll(".filter-btn");
 const listTitle = document.getElementById("list-title");
 const adminUserFilterContainer = document.getElementById("admin-user-filter-container");
-const adminUserFilterSelect = document.getElementById("admin-user-filter");
+const adminUserFilterWrapper = document.getElementById("admin-user-filter");
+const adminUserFilterTrigger = document.getElementById("admin-user-filter-trigger");
+const adminUserFilterCurrent = document.getElementById("admin-user-filter-current");
+const adminUserFilterList = document.getElementById("admin-user-filter-list");
+const buscadorTareas = document.getElementById("buscador-tareas");
 
 // ---------- Referencias al DOM: Sidebar / navegación entre vistas ----------
 const menuToggleBtn = document.getElementById("menu-toggle-btn");
 const sidebarOverlay = document.getElementById("sidebar-overlay");
 const botonesNav = document.querySelectorAll(".nav-btn");
 const vistas = document.querySelectorAll(".view");
+const statsTitleEl = document.getElementById("stats-title");
+const statsGridEl = document.getElementById("stats-grid");
+const statsPriorityBarsEl = document.getElementById("stats-priority-bars");
+const statsUsersSectionEl = document.getElementById("stats-users-section");
+const statsUserListEl = document.getElementById("stats-user-list");
 
 // ---------- Referencias al DOM: Modal "Nueva tarea" ----------
 const fabNuevaTarea = document.getElementById("fab-nueva-tarea");
@@ -241,6 +251,8 @@ function mostrarAuth() {
   authForm.reset();
   modoAuth = "login";
   esAdmin = false;
+  filtroUsuarioActual = "todos";
+  cerrarListaFiltroUsuario();
   actualizarTextosAuth();
 }
 
@@ -285,6 +297,9 @@ botonesNav.forEach((boton) => {
 
     if (vistaSeleccionada === "calendario") {
       renderizarCalendario();
+    }
+    if (vistaSeleccionada === "estadisticas") {
+      renderizarEstadisticas();
     }
   });
 });
@@ -521,13 +536,32 @@ async function ejecutarEliminacion(id) {
   await recargarYRenderizar();
 }
 
+function mostrarEsqueletoCarga() {
+  listaTareas.innerHTML = Array.from({ length: 4 })
+    .map(
+      () => `
+      <li class="task-item task-item--skeleton" aria-hidden="true">
+        <div class="skeleton-box skeleton-box--check"></div>
+        <div class="task-item__body">
+          <div class="skeleton-box skeleton-box--title"></div>
+          <div class="skeleton-box skeleton-box--meta"></div>
+        </div>
+      </li>
+    `
+    )
+    .join("");
+  estadoVacio.style.display = "none";
+}
+
 async function recargarYRenderizar() {
+  mostrarEsqueletoCarga();
   tareas = await cargarTareas();
   if (esAdmin) {
     poblarFiltroDeUsuarios();
   }
   renderizar();
   renderizarCalendario();
+  renderizarEstadisticas();
   if (diaCalendarioSeleccionado) {
     renderizarTareasDelDia(diaCalendarioSeleccionado);
   }
@@ -564,11 +598,15 @@ function obtenerTareasFiltradas() {
   if (esAdmin && filtroUsuarioActual !== "todos") {
     resultado = resultado.filter((t) => t.ownerEmail === filtroUsuarioActual);
   }
+  if (terminoBusqueda.trim() !== "") {
+    const termino = terminoBusqueda.trim().toLowerCase();
+    resultado = resultado.filter((t) => t.title.toLowerCase().includes(termino));
+  }
   return ordenarTareas(resultado);
 }
 
-// Llena el <select> de "Filtrar por usuario" con los usuarios que
-// realmente tienen tareas, evitando mostrar opciones vacías.
+// Llena la lista de "Filtrar por usuario" con los usuarios que realmente
+// tienen tareas, evitando mostrar opciones vacías.
 function poblarFiltroDeUsuarios() {
   const usuariosUnicos = new Map();
   tareas.forEach((t) => {
@@ -577,26 +615,109 @@ function poblarFiltroDeUsuarios() {
     }
   });
 
-  const valorActual = adminUserFilterSelect.value;
-  adminUserFilterSelect.innerHTML = '<option value="todos">Todos los usuarios</option>';
+  // Si el usuario que tenías seleccionado ya no tiene tareas, vuelve a "todos"
+  if (filtroUsuarioActual !== "todos" && !usuariosUnicos.has(filtroUsuarioActual)) {
+    filtroUsuarioActual = "todos";
+  }
+
+  function crearOpcion(valor, texto) {
+    const li = document.createElement("li");
+    li.className = "custom-select__option";
+    li.setAttribute("role", "option");
+    li.dataset.value = valor;
+    li.textContent = texto;
+    const seleccionada = valor === filtroUsuarioActual;
+    li.classList.toggle("is-selected", seleccionada);
+    li.setAttribute("aria-selected", String(seleccionada));
+    li.addEventListener("click", () => seleccionarUsuarioFiltro(valor, texto));
+    return li;
+  }
+
+  adminUserFilterList.innerHTML = "";
+  adminUserFilterList.appendChild(crearOpcion("todos", "Todos los usuarios"));
   usuariosUnicos.forEach((nombre, email) => {
-    const option = document.createElement("option");
-    option.value = email;
-    option.textContent = nombre;
-    adminUserFilterSelect.appendChild(option);
+    adminUserFilterList.appendChild(crearOpcion(email, nombre));
   });
-  adminUserFilterSelect.value = valorActual || "todos";
+
+  adminUserFilterCurrent.textContent =
+    filtroUsuarioActual === "todos" ? "Todos los usuarios" : usuariosUnicos.get(filtroUsuarioActual);
 }
 
-adminUserFilterSelect.addEventListener("change", () => {
-  filtroUsuarioActual = adminUserFilterSelect.value;
+function seleccionarUsuarioFiltro(valor, texto) {
+  filtroUsuarioActual = valor;
+  adminUserFilterCurrent.textContent = texto;
+
+  adminUserFilterList.querySelectorAll(".custom-select__option").forEach((li) => {
+    const seleccionada = li.dataset.value === valor;
+    li.classList.toggle("is-selected", seleccionada);
+    li.setAttribute("aria-selected", String(seleccionada));
+  });
+
+  cerrarListaFiltroUsuario();
+  renderizar();
+}
+
+function abrirListaFiltroUsuario() {
+  adminUserFilterList.hidden = false;
+  adminUserFilterTrigger.setAttribute("aria-expanded", "true");
+}
+
+function cerrarListaFiltroUsuario() {
+  adminUserFilterList.hidden = true;
+  adminUserFilterTrigger.setAttribute("aria-expanded", "false");
+}
+
+adminUserFilterTrigger.addEventListener("click", (event) => {
+  event.stopPropagation();
+  if (adminUserFilterList.hidden) {
+    abrirListaFiltroUsuario();
+  } else {
+    cerrarListaFiltroUsuario();
+  }
+});
+
+// Cierra la lista si el usuario hace clic afuera, o presiona Escape
+document.addEventListener("click", (event) => {
+  if (!adminUserFilterList.hidden && !adminUserFilterWrapper.contains(event.target)) {
+    cerrarListaFiltroUsuario();
+  }
+});
+
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape") cerrarListaFiltroUsuario();
+});
+
+buscadorTareas.addEventListener("input", () => {
+  terminoBusqueda = buscadorTareas.value;
   renderizar();
 });
+
+function estaVencida(task) {
+  if (!task.dueDate || task.status === "completada") return false;
+  const hoy = new Date();
+  hoy.setHours(0, 0, 0, 0);
+  const [year, month, day] = task.dueDate.split("-").map(Number);
+  const fechaLimite = new Date(year, month - 1, day);
+  return fechaLimite < hoy;
+}
+
+// Envuelve en <mark> la parte del texto que coincide con la búsqueda actual,
+// manteniendo el resto del título escapado normalmente (sin riesgo de HTML injection).
+function resaltarCoincidencia(texto, termino) {
+  const escapado = escapeHtml(texto);
+  if (!termino || termino.trim() === "") return escapado;
+
+  const terminoSeguro = termino.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const regex = new RegExp(`(${terminoSeguro})`, "ig");
+  return escapado.replace(regex, '<mark class="search-highlight">$1</mark>');
+}
 
 function construirElementoTarea(task) {
   const li = document.createElement("li");
   li.className = `task-item task-item--${task.priority}`;
   if (task.status === "completada") li.classList.add("task-item--done");
+  const vencida = estaVencida(task);
+  if (vencida) li.classList.add("task-item--overdue");
   li.dataset.id = task.id;
 
   const metaParts = [
@@ -604,6 +725,9 @@ function construirElementoTarea(task) {
   ];
   if (task.dueDate) {
     metaParts.push(`<span class="badge badge--date">Vence: ${formatearFecha(task.dueDate)}</span>`);
+  }
+  if (vencida) {
+    metaParts.push(`<span class="badge badge--overdue">⚠ Vencida</span>`);
   }
   if (esAdmin && task.ownerName) {
     metaParts.push(`<span class="badge badge--owner">👤 ${escapeHtml(task.ownerName)}</span>`);
@@ -617,7 +741,7 @@ function construirElementoTarea(task) {
       aria-label="Marcar tarea como ${task.status === "completada" ? "pendiente" : "completada"}"
     />
     <div class="task-item__body">
-      <p class="task-item__title">${escapeHtml(task.title)}</p>
+      <p class="task-item__title">${resaltarCoincidencia(task.title, terminoBusqueda)}</p>
       ${task.description ? `<p class="task-item__description">${escapeHtml(task.description)}</p>` : ""}
       <div class="task-item__meta">${metaParts.join("")}</div>
     </div>
@@ -651,6 +775,100 @@ function renderizar() {
     tareas.length === 0
       ? "Aún no tienes tareas. Crea la primera desde el formulario."
       : "No hay tareas que coincidan con este filtro.";
+}
+
+// ---------- Estadísticas ----------
+// Se calculan a partir de "tareas" (ya cargadas en memoria), sin hacer
+// consultas nuevas a Supabase. Para un usuario normal, "tareas" ya
+// contiene solo sus propias tareas (RLS); para un administrador,
+// contiene las de todos, así que las estadísticas quedan globales
+// automáticamente sin código adicional.
+function renderizarEstadisticas() {
+  statsTitleEl.textContent = esAdmin ? "Estadísticas generales" : "Mis estadísticas";
+
+  const total = tareas.length;
+  const pendientes = tareas.filter((t) => t.status === "pendiente").length;
+  const completadas = tareas.filter((t) => t.status === "completada").length;
+  const vencidas = tareas.filter((t) => estaVencida(t)).length;
+
+  const tarjetas = [];
+
+  if (esAdmin) {
+    const usuariosUnicos = new Set(tareas.map((t) => t.ownerEmail).filter(Boolean));
+    tarjetas.push({ valor: usuariosUnicos.size, etiqueta: "Usuarios activos", clase: "stat-card--users" });
+  }
+
+  tarjetas.push(
+    { valor: total, etiqueta: "Tareas en total", clase: "stat-card--total" },
+    { valor: pendientes, etiqueta: "Pendientes", clase: "stat-card--pending" },
+    { valor: completadas, etiqueta: "Completadas", clase: "stat-card--done" },
+    { valor: vencidas, etiqueta: "Vencidas", clase: "stat-card--overdue" }
+  );
+
+  statsGridEl.innerHTML = tarjetas
+    .map(
+      (t) => `
+      <div class="stat-card ${t.clase}">
+        <p class="stat-card__value">${t.valor}</p>
+        <p class="stat-card__label">${t.etiqueta}</p>
+      </div>
+    `
+    )
+    .join("");
+
+  // ---- Distribución por prioridad ----
+  const porPrioridad = { baja: 0, media: 0, alta: 0 };
+  tareas.forEach((t) => {
+    if (porPrioridad[t.priority] !== undefined) porPrioridad[t.priority]++;
+  });
+  const maxPrioridad = Math.max(1, ...Object.values(porPrioridad));
+
+  statsPriorityBarsEl.innerHTML = Object.entries(porPrioridad)
+    .map(([prioridad, cantidad]) => {
+      const porcentaje = Math.round((cantidad / maxPrioridad) * 100);
+      return `
+        <div class="stats-bar-row">
+          <span class="stats-bar-row__label">${ETIQUETAS_PRIORIDAD[prioridad]}</span>
+          <div class="stats-bar-row__track">
+            <div class="stats-bar-row__fill stats-bar-row__fill--${prioridad}" style="width: ${porcentaje}%"></div>
+          </div>
+          <span class="stats-bar-row__count">${cantidad}</span>
+        </div>
+      `;
+    })
+    .join("");
+
+  // ---- Ranking por usuario (solo visible para el administrador) ----
+  if (esAdmin) {
+    statsUsersSectionEl.hidden = false;
+
+    const conteoPorUsuario = new Map();
+    tareas.forEach((t) => {
+      if (!t.ownerEmail) return;
+      const nombre = t.ownerName || t.ownerEmail;
+      conteoPorUsuario.set(nombre, (conteoPorUsuario.get(nombre) || 0) + 1);
+    });
+
+    const listaOrdenada = [...conteoPorUsuario.entries()].sort((a, b) => b[1] - a[1]);
+    const maxUsuario = Math.max(1, ...listaOrdenada.map(([, cantidad]) => cantidad));
+
+    statsUserListEl.innerHTML = listaOrdenada
+      .map(([nombre, cantidad]) => {
+        const porcentaje = Math.round((cantidad / maxUsuario) * 100);
+        return `
+          <li class="stats-user-row">
+            <span class="stats-user-row__name">${escapeHtml(nombre)}</span>
+            <div class="stats-user-row__track">
+              <div class="stats-user-row__fill" style="width: ${porcentaje}%"></div>
+            </div>
+            <span class="stats-user-row__count">${cantidad}</span>
+          </li>
+        `;
+      })
+      .join("");
+  } else {
+    statsUsersSectionEl.hidden = true;
+  }
 }
 
 // ---------- Eventos de la app de tareas ----------

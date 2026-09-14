@@ -3,7 +3,10 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>CloudTasks — Gestor</title>
+  <title>CloudTasks</title>
+  <link rel="icon" type="image/svg+xml" href="favicon.svg" />
+  <link rel="alternate icon" href="favicon.ico" />
+  <link rel="apple-touch-icon" href="apple-touch-icon.png" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link
@@ -89,6 +92,10 @@
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="3"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
           <span>Calendario</span>
         </button>
+        <button type="button" class="nav-btn" data-view="estadisticas">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+          <span>Estadísticas</span>
+        </button>
         <button type="button" class="nav-btn" data-view="ajustes">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
           <span>Ajustes</span>
@@ -115,11 +122,27 @@
             </div>
           </div>
 
+          <div class="search-field">
+            <svg class="search-field__icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            <input type="search" id="buscador-tareas" placeholder="Buscar por título..." aria-label="Buscar tareas por título" />
+          </div>
+
           <div class="field admin-user-filter" id="admin-user-filter-container" hidden>
-            <label for="admin-user-filter">Filtrar por usuario</label>
-            <select id="admin-user-filter">
-              <option value="todos">Todos los usuarios</option>
-            </select>
+            <label id="admin-user-filter-label">Filtrar por usuario</label>
+            <div class="custom-select" id="admin-user-filter">
+              <button
+                type="button"
+                class="custom-select__trigger"
+                id="admin-user-filter-trigger"
+                aria-haspopup="listbox"
+                aria-expanded="false"
+                aria-labelledby="admin-user-filter-label admin-user-filter-current"
+              >
+                <span id="admin-user-filter-current">Todos los usuarios</span>
+                <svg class="custom-select__chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+              </button>
+              <ul class="custom-select__list" id="admin-user-filter-list" role="listbox" hidden></ul>
+            </div>
           </div>
 
           <p class="task-count" id="contador-tareas"></p>
@@ -156,6 +179,25 @@
           <p class="empty-state empty-state--compact" id="calendar-day-empty" hidden>
             No tienes tareas para este día.
           </p>
+        </section>
+      </section>
+
+      <!-- ---------- VISTA: ESTADÍSTICAS ---------- -->
+      <section id="view-estadisticas" class="view" hidden>
+        <section class="panel panel--stats">
+          <h2 id="stats-title">Mis estadísticas</h2>
+
+          <div class="stats-grid" id="stats-grid"></div>
+
+          <div class="stats-section">
+            <h3>Por prioridad</h3>
+            <div class="stats-bars" id="stats-priority-bars"></div>
+          </div>
+
+          <div class="stats-section" id="stats-users-section" hidden>
+            <h3>Tareas por usuario</h3>
+            <ul class="stats-user-list" id="stats-user-list"></ul>
+          </div>
         </section>
       </section>
 
