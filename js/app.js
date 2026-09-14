@@ -62,6 +62,10 @@ const vistas = document.querySelectorAll(".view");
 const fabNuevaTarea = document.getElementById("fab-nueva-tarea");
 const taskModalOverlay = document.getElementById("task-modal-overlay");
 const closeTaskModalBtn = document.getElementById("close-task-modal-btn");
+const confirmDeleteOverlay = document.getElementById("confirm-delete-overlay");
+const confirmDeleteCloseBtn = document.getElementById("confirm-delete-close-btn");
+const confirmDeleteCancelBtn = document.getElementById("confirm-delete-cancel-btn");
+const confirmDeleteAcceptBtn = document.getElementById("confirm-delete-accept-btn");
 const formTitleEl = document.getElementById("form-title");
 const taskFormSubmitBtn = document.getElementById("task-form-submit-btn");
 
@@ -473,12 +477,39 @@ async function actualizarTarea(id, { title, description, dueDate, priority }) {
   await recargarYRenderizar();
 }
 
-// DELETE
-async function eliminarTarea(id) {
-  if (ajustes.confirmDelete && !confirm("¿Seguro que quieres eliminar esta tarea?")) {
+// ---------- Modal de confirmación para eliminar ----------
+// Guarda el id de la tarea que se quiere eliminar mientras se espera
+// la confirmación del usuario dentro del modal propio de la app.
+let tareaAEliminarId = null;
+
+function pedirConfirmacionEliminar(id) {
+  if (!ajustes.confirmDelete) {
+    ejecutarEliminacion(id);
     return;
   }
+  tareaAEliminarId = id;
+  confirmDeleteOverlay.hidden = false;
+}
 
+function cerrarModalConfirmacion() {
+  confirmDeleteOverlay.hidden = true;
+  tareaAEliminarId = null;
+}
+
+confirmDeleteCloseBtn.addEventListener("click", cerrarModalConfirmacion);
+confirmDeleteCancelBtn.addEventListener("click", cerrarModalConfirmacion);
+confirmDeleteAcceptBtn.addEventListener("click", () => {
+  const id = tareaAEliminarId;
+  cerrarModalConfirmacion();
+  if (id) ejecutarEliminacion(id);
+});
+
+// DELETE
+async function eliminarTarea(id) {
+  pedirConfirmacionEliminar(id);
+}
+
+async function ejecutarEliminacion(id) {
   const { error } = await supabaseClient.from("tasks").delete().eq("id", id);
 
   if (error) {

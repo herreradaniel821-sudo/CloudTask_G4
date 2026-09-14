@@ -1177,3 +1177,46 @@ textarea.is-invalid {
   gap: 2px;
   flex: none;
 }
+
+
+/* ---------- Modal de confirmación (eliminar) ---------- */
+
+.modal--confirm {
+  max-width: 380px;
+}
+
+.modal__text {
+  margin: 0 0 20px;
+  font-size: 14px;
+  color: var(--muted, #6b7280);
+  line-height: 1.5;
+}
+
+.modal__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.modal__actions .btn {
+  width: auto;
+}
+
+.btn--ghost {
+  background: none;
+  border: 1.5px solid var(--border, #e5e7eb);
+  color: var(--ink, #1f2937);
+}
+
+.btn--ghost:hover {
+  background: var(--surface-alt, #f5f6fa);
+}
+
+.btn--danger {
+  background: var(--danger, #E5484D);
+  color: #fff;
+}
+
+.btn--danger:hover {
+  filter: brightness(1.08);
+}
