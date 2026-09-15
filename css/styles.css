@@ -1530,6 +1530,38 @@ textarea.is-invalid {
   max-width: 380px;
 }
 
+.modal--success {
+  text-align: center;
+}
+
+.modal--success .modal__close {
+  display: none;
+}
+
+.modal--success .modal__header {
+  justify-content: center;
+  margin-top: 12px;
+}
+
+.modal__success-icon {
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  margin: 0 auto;
+  border-radius: 999px;
+  background: var(--prio-baja-soft);
+  color: var(--prio-baja);
+}
+
+.modal--success .modal__text {
+  margin-bottom: 22px;
+}
+
+.modal--success .modal__actions {
+  justify-content: center;
+}
+
 .modal__text {
   margin: 0 0 20px;
   font-size: 14px;

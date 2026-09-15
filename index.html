@@ -342,6 +342,24 @@
       </div>
     </div>
 
+    <!-- ---------- MODAL: Tarea delegada creada ---------- -->
+    <div id="delegated-task-overlay" class="modal-overlay" hidden>
+      <div class="modal modal--confirm modal--success" role="dialog" aria-modal="true" aria-labelledby="delegated-task-title">
+        <div class="modal__success-icon" aria-hidden="true">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 4 4L19 6"/></svg>
+        </div>
+        <div class="modal__header">
+          <h2 id="delegated-task-title">Tarea delegada</h2>
+        </div>
+
+        <p class="modal__text">La tarea se creó y fue asignada correctamente al usuario seleccionado.</p>
+
+        <div class="modal__actions">
+          <button type="button" id="delegated-task-close-btn-secondary" class="btn btn--primary">Listo</button>
+        </div>
+      </div>
+    </div>
+
   </div>
 
   <footer class="app-footer">

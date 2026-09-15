@@ -87,6 +87,8 @@ const confirmDeleteOverlay = document.getElementById("confirm-delete-overlay");
 const confirmDeleteCloseBtn = document.getElementById("confirm-delete-close-btn");
 const confirmDeleteCancelBtn = document.getElementById("confirm-delete-cancel-btn");
 const confirmDeleteAcceptBtn = document.getElementById("confirm-delete-accept-btn");
+const delegatedTaskOverlay = document.getElementById("delegated-task-overlay");
+const delegatedTaskCloseSecondaryBtn = document.getElementById("delegated-task-close-btn-secondary");
 const formTitleEl = document.getElementById("form-title");
 const taskFormSubmitBtn = document.getElementById("task-form-submit-btn");
 
@@ -576,10 +578,11 @@ async function crearTarea({ title, description, dueDate, priority, userId = null
   if (error) {
     console.error("Error al crear tarea:", error.message);
     alert("No se pudo crear la tarea: " + error.message);
-    return;
+    return false;
   }
 
   await recargarYRenderizar();
+  return true;
 }
 
 // UPDATE (estado): funciona igual para dueño o administrador; RLS decide si se permite.
@@ -651,6 +654,16 @@ confirmDeleteAcceptBtn.addEventListener("click", () => {
   const id = tareaAEliminarId;
   cerrarModalConfirmacion();
   if (id) ejecutarEliminacion(id);
+});
+
+function cerrarConfirmacionTareaDelegada() {
+  delegatedTaskOverlay.hidden = true;
+}
+
+delegatedTaskCloseSecondaryBtn.addEventListener("click", cerrarConfirmacionTareaDelegada);
+
+delegatedTaskOverlay.addEventListener("click", (event) => {
+  if (event.target === delegatedTaskOverlay) cerrarConfirmacionTareaDelegada();
 });
 
 // DELETE
@@ -1072,6 +1085,7 @@ formulario.addEventListener("submit", async (event) => {
 
   // El "finally" garantiza que el formulario SIEMPRE se limpie,
   // haya funcionado la operación o no.
+  let tareaDelegadaCreada = false;
   try {
     if (tareaEditandoId) {
       await actualizarTarea(tareaEditandoId, {
@@ -1081,19 +1095,22 @@ formulario.addEventListener("submit", async (event) => {
         priority: prioridadInput.value,
       });
     } else {
-      await crearTarea({
+      const seCreoLaTarea = await crearTarea({
         title: titulo,
         description: descripcion,
         dueDate: fechaLimiteInput.value,
         priority: prioridadInput.value,
         userId: esAdmin ? taskAssigneeInput.value : null,
       });
+      tareaDelegadaCreada = esAdmin && seCreoLaTarea;
     }
   } finally {
     formulario.reset();
     prioridadInput.value = "media";
     cerrarModalTarea();
   }
+
+  if (tareaDelegadaCreada) delegatedTaskOverlay.hidden = false;
 });
 
 botonesFiltro.forEach((button) => {
