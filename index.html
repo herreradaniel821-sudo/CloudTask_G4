@@ -269,11 +269,9 @@
 
         <form id="formulario-tarea" class="task-form" novalidate>
           <div class="field" id="task-assignee-field" hidden>
-            <label id="task-assignee-label" for="task-assignee">Asignar a usuario <span class="field__required">*</span></label>
+            <label id="task-assignee-label" for="task-assignee-search">Buscar usuario <span class="field__required">*</span></label>
             <div class="task-assignee-select">
-              <select id="task-assignee" name="taskAssignee" class="task-assignee-select__native">
-                <option value="">Selecciona un usuario</option>
-              </select>
+              <select id="task-assignee" name="taskAssignee" class="task-assignee-select__native" aria-hidden="true" tabindex="-1"></select>
               <input type="search" class="task-assignee-select__search" id="task-assignee-search" placeholder="Buscar usuario..." aria-label="Buscar usuario para delegar" autocomplete="off" />
               <div class="task-assignee-select__menu" id="task-assignee-menu" hidden>
                 <ul class="task-assignee-select__list" id="task-assignee-list" role="listbox"></ul>

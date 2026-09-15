@@ -334,11 +334,7 @@ select:focus {
 }
 
 .task-assignee-select select {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  opacity: 0;
-  pointer-events: none;
+  display: none;
 }
 
 .task-assignee-select__menu {
@@ -365,6 +361,21 @@ select:focus {
   width: 100%;
   padding: 10px 12px;
   font-size: 14.5px;
+}
+
+@media (max-width: 600px) {
+  .task-assignee-select__search {
+    min-height: 44px;
+    font-size: 16px;
+  }
+
+  .task-assignee-select__menu {
+    max-height: 180px;
+  }
+
+  .task-assignee-select__list {
+    max-height: 135px;
+  }
 }
 
 .task-assignee-select__list {

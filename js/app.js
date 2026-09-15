@@ -339,10 +339,9 @@ function poblarUsuariosParaDelegar() {
     (a.full_name || a.email).localeCompare(b.full_name || b.email)
   );
 
-  taskAssigneeInput.innerHTML = '<option value="">Selecciona un usuario</option>';
+  taskAssigneeInput.innerHTML = "";
   taskAssigneeSearch.value = "";
   taskAssigneeList.innerHTML = "";
-  taskAssigneeList.appendChild(crearOpcionAsignacion("", "Selecciona un usuario"));
   perfilesOrdenados.forEach((perfil) => {
     const option = document.createElement("option");
     option.value = perfil.id;
