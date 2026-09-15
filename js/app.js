@@ -49,6 +49,9 @@ const fechaLimiteInput = document.getElementById("fechaLimite");
 const prioridadInput = document.getElementById("prioridad");
 const taskAssigneeField = document.getElementById("task-assignee-field");
 const taskAssigneeInput = document.getElementById("task-assignee");
+const taskAssigneeMenu = document.getElementById("task-assignee-menu");
+const taskAssigneeSearch = document.getElementById("task-assignee-search");
+const taskAssigneeList = document.getElementById("task-assignee-list");
 const assignmentError = document.getElementById("assignment-error");
 const errorTitulo = document.getElementById("title-error");
 const errorDescripcion = document.getElementById("description-error");
@@ -335,6 +338,9 @@ function poblarUsuariosParaDelegar() {
   );
 
   taskAssigneeInput.innerHTML = '<option value="">Selecciona un usuario</option>';
+  taskAssigneeSearch.value = "";
+  taskAssigneeList.innerHTML = "";
+  taskAssigneeList.appendChild(crearOpcionAsignacion("", "Selecciona un usuario"));
   perfilesOrdenados.forEach((perfil) => {
     const option = document.createElement("option");
     option.value = perfil.id;
@@ -342,12 +348,68 @@ function poblarUsuariosParaDelegar() {
       ? `${perfil.full_name} (${perfil.email})`
       : perfil.email;
     taskAssigneeInput.appendChild(option);
+    taskAssigneeList.appendChild(crearOpcionAsignacion(option.value, option.textContent));
   });
 
   if (perfilesOrdenados.some((p) => p.id === valorActual)) {
     taskAssigneeInput.value = valorActual;
   }
+  actualizarAsignacionSeleccionada();
+  filtrarUsuariosParaDelegar();
 }
+
+function crearOpcionAsignacion(valor, texto) {
+  const opcion = document.createElement("li");
+  opcion.className = "task-assignee-select__option";
+  opcion.setAttribute("role", "option");
+  opcion.dataset.value = valor;
+  opcion.textContent = texto;
+  opcion.addEventListener("click", () => {
+    taskAssigneeInput.value = valor;
+    taskAssigneeSearch.value = texto;
+    taskAssigneeInput.dispatchEvent(new Event("change", { bubbles: true }));
+    actualizarAsignacionSeleccionada();
+    cerrarListaAsignacion();
+  });
+  return opcion;
+}
+
+function actualizarAsignacionSeleccionada() {
+  const seleccionada = taskAssigneeInput.options[taskAssigneeInput.selectedIndex];
+  taskAssigneeList.querySelectorAll(".task-assignee-select__option").forEach((opcion) => {
+    const esSeleccionada = opcion.dataset.value === taskAssigneeInput.value;
+    opcion.classList.toggle("is-selected", esSeleccionada);
+    opcion.setAttribute("aria-selected", String(esSeleccionada));
+  });
+}
+
+function cerrarListaAsignacion() {
+  taskAssigneeMenu.hidden = true;
+}
+
+function filtrarUsuariosParaDelegar() {
+  const termino = taskAssigneeSearch.value.trim().toLocaleLowerCase();
+  const opciones = [...taskAssigneeList.querySelectorAll(".task-assignee-select__option")];
+  const visibles = opciones.filter((opcion) => {
+    const coincide = !termino || opcion.textContent.toLocaleLowerCase().includes(termino);
+    opcion.hidden = !coincide;
+    return coincide;
+  });
+
+  opciones.forEach((opcion) => taskAssigneeList.appendChild(opcion));
+  visibles.forEach((opcion) => {
+    if (termino && opcion.dataset.value !== "") taskAssigneeList.prepend(opcion);
+  });
+}
+
+taskAssigneeSearch.addEventListener("input", () => {
+  filtrarUsuariosParaDelegar();
+  taskAssigneeMenu.hidden = !taskAssigneeSearch.value.trim();
+});
+
+document.addEventListener("click", (event) => {
+  if (!event.target.closest(".task-assignee-select")) cerrarListaAsignacion();
+});
 
 function abrirModalTarea(tarea = null) {
   if (assignmentError) assignmentError.textContent = "";
@@ -638,10 +700,17 @@ async function recargarYRenderizar() {
 }
 
 function actualizarSugerenciasUsuarios() {
+  const nombresPorCorreo = new Map(
+    perfilesUsuarios
+      .filter((perfil) => perfil.email && perfil.full_name)
+      .map((perfil) => [perfil.email, perfil.full_name])
+  );
+
   nombresUsuariosTareas = [...new Set(
     tareas
-      .filter((tarea) => !tarea.ownerIsAdmin && tarea.ownerName)
-      .map((tarea) => tarea.ownerName)
+      .filter((tarea) => !tarea.ownerIsAdmin)
+      .map((tarea) => tarea.ownerName || nombresPorCorreo.get(tarea.ownerEmail))
+      .filter(Boolean)
   )].sort((a, b) => a.localeCompare(b));
 
   nombresUsuariosEstadisticas = [...new Set(
