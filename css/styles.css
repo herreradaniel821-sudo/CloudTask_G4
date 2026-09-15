@@ -31,6 +31,7 @@
   --prio-alta-soft: #FDEAEE;
 
   --danger: #E5484D;
+  --danger-soft: #FDEBEC;
 
   --radius-sm: 8px;
   --radius-md: 14px;
@@ -67,6 +68,7 @@
   --prio-baja-soft: #17323A;
   --prio-media-soft: #2B2350;
   --prio-alta-soft: #3A2129;
+  --danger-soft: #3A1E22;
 
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.35);
   --shadow-md: 0 6px 20px rgba(0, 0, 0, 0.4);
@@ -594,7 +596,7 @@ textarea.is-invalid {
 .task-count {
   margin: 2px 0 16px;
   font-size: 13px;
-  color: var(--muted);
+  color: var(--primary-soft-ink);
 }
 
 .task-list {
@@ -724,9 +726,9 @@ textarea.is-invalid {
 }
 
 .badge--date {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  color: var(--muted);
+  background: var(--primary-soft);
+  border: 1px solid var(--border-strong);
+  color: var(--primary-soft-ink);
 }
 
 .task-item__delete {
@@ -754,9 +756,9 @@ textarea.is-invalid {
   padding: 28px 16px;
   text-align: center;
   font-size: 13.5px;
-  color: var(--muted);
-  background: var(--surface-alt);
-  border: 1.5px dashed var(--border-strong);
+  color: var(--primary-soft-ink);
+  background: var(--primary-soft);
+  border: 1.5px dashed var(--primary);
   border-radius: var(--radius-md);
 }
 
@@ -869,10 +871,10 @@ textarea.is-invalid {
   place-items: center;
   width: 30px;
   height: 30px;
-  border: 1px solid var(--border);
+  border: 1px solid var(--border-strong);
   background: var(--surface);
   border-radius: var(--radius-sm);
-  color: var(--muted);
+  color: var(--primary-soft-ink);
   cursor: pointer;
 }
 
@@ -891,7 +893,7 @@ textarea.is-invalid {
   text-align: center;
   font-size: 11.5px;
   font-weight: 600;
-  color: var(--muted-soft);
+  color: var(--primary-soft-ink);
   text-transform: uppercase;
 }
 
@@ -922,7 +924,7 @@ textarea.is-invalid {
 }
 
 .calendar-day--muted {
-  color: var(--muted-soft);
+  color: var(--primary-soft-ink);
 }
 
 .calendar-day--today {
@@ -1093,6 +1095,21 @@ textarea.is-invalid {
   }
 }
 
+@media (min-width: 901px) {
+  #view-calendario {
+    display: grid;
+    grid-template-columns: minmax(0, 1.25fr) minmax(240px, 0.65fr);
+    align-items: start;
+    gap: 20px;
+    max-width: 1000px;
+    margin: 0 auto;
+  }
+
+  #view-calendario .panel + .panel {
+    margin-top: 0;
+  }
+}
+
 @media (max-width: 600px) {
   .app-content {
     padding: 14px 12px 90px;
@@ -1128,87 +1145,6 @@ textarea.is-invalid {
 
 .admin-user-filter {
   margin-bottom: 10px;
-}
-
-.custom-select {
-  position: relative;
-}
-
-.custom-select__trigger {
-  width: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  padding: 10px 12px;
-  background: var(--surface-alt);
-  color: var(--ink);
-  font-family: inherit;
-  font-size: 14.5px;
-  text-align: left;
-  border: 1.5px solid var(--border);
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
-}
-
-.custom-select__trigger:hover {
-  border-color: var(--primary);
-}
-
-.custom-select__trigger:focus {
-  outline: none;
-  border-color: var(--primary);
-  box-shadow: 0 0 0 3px var(--primary-soft);
-}
-
-.custom-select__chevron {
-  flex: none;
-  color: var(--muted);
-  transition: transform 0.15s ease;
-}
-
-.custom-select__trigger[aria-expanded="true"] .custom-select__chevron {
-  transform: rotate(180deg);
-}
-
-.custom-select__list {
-  position: absolute;
-  top: calc(100% + 6px);
-  left: 0;
-  right: 0;
-  z-index: 30;
-  max-height: 220px;
-  overflow-y: auto;
-  margin: 0;
-  padding: 6px;
-  list-style: none;
-  background: var(--surface);
-  border: 1.5px solid var(--border);
-  border-radius: var(--radius-sm);
-  box-shadow: var(--shadow-lg);
-}
-
-.custom-select__list[hidden] {
-  display: none !important;
-}
-
-.custom-select__option {
-  padding: 9px 10px;
-  font-size: 14px;
-  color: var(--ink);
-  border-radius: 6px;
-  cursor: pointer;
-}
-
-.custom-select__option:hover {
-  background: var(--primary-soft);
-}
-
-.custom-select__option.is-selected {
-  background: var(--primary);
-  color: #fff;
-  font-weight: 600;
 }
 
 /* ---------- Resaltado de coincidencias en la búsqueda ---------- */
@@ -1265,37 +1201,75 @@ textarea.is-invalid {
 
 .stats-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
   gap: 14px;
   margin-bottom: 28px;
 }
 
 .stat-card {
-  padding: 18px 16px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px;
   border-radius: var(--radius-lg, 16px);
-  background: var(--surface-alt);
+  background: var(--surface);
   border: 1.5px solid var(--border);
+  box-shadow: var(--shadow-sm);
+  transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+}
+
+.stat-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+  border-color: var(--border-strong);
+}
+
+.stat-card__icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+}
+
+.stat-card__icon svg {
+  width: 20px;
+  height: 20px;
+}
+
+.stat-card__body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
 }
 
 .stat-card__value {
-  margin: 0 0 4px;
+  margin: 0;
   font-family: var(--font-display, inherit);
-  font-size: 26px;
+  font-size: 24px;
   font-weight: 700;
+  line-height: 1.15;
   color: var(--ink);
+  font-variant-numeric: tabular-nums;
 }
 
 .stat-card__label {
   margin: 0;
-  font-size: 13px;
+  font-size: 12.5px;
   color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.stat-card--total { border-left: 4px solid var(--primary); }
-.stat-card--pending { border-left: 4px solid var(--prio-media); }
-.stat-card--done { border-left: 4px solid var(--prio-baja); }
-.stat-card--overdue { border-left: 4px solid var(--danger); }
-.stat-card--users { border-left: 4px solid var(--prio-alta); }
+.stat-card--total .stat-card__icon { background: var(--primary-soft); color: var(--primary); }
+.stat-card--pending .stat-card__icon { background: var(--prio-media-soft); color: var(--prio-media); }
+.stat-card--done .stat-card__icon { background: var(--prio-baja-soft); color: var(--prio-baja); }
+.stat-card--overdue .stat-card__icon { background: var(--danger-soft); color: var(--danger); }
+.stat-card--users .stat-card__icon { background: var(--prio-alta-soft); color: var(--prio-alta); }
 
 .stats-section {
   margin-top: 24px;
@@ -1326,7 +1300,7 @@ textarea.is-invalid {
 .stats-bar-row,
 .stats-user-row {
   display: grid;
-  grid-template-columns: 90px 1fr 34px;
+  grid-template-columns: 60px 1fr 28px;
   align-items: center;
   gap: 10px;
 }
@@ -1338,11 +1312,27 @@ textarea.is-invalid {
 .stats-bar-row__label,
 .stats-user-row__name {
   font-size: 13px;
+  font-weight: 600;
   color: var(--ink);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
+
+.stats-bar-row__label::before {
+  content: "";
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  margin-right: 6px;
+  border-radius: 50%;
+  background: var(--muted);
+  vertical-align: middle;
+}
+
+.stats-bar-row__label--baja::before { background: var(--prio-baja); }
+.stats-bar-row__label--media::before { background: var(--prio-media); }
+.stats-bar-row__label--alta::before { background: var(--prio-alta); }
 
 .stats-bar-row__track,
 .stats-user-row__track {
@@ -1385,7 +1375,7 @@ textarea.is-invalid {
 
   .stats-bar-row,
   .stats-user-row {
-    grid-template-columns: 70px 1fr 28px;
+    grid-template-columns: 54px 1fr 24px;
     gap: 8px;
   }
 
@@ -1393,8 +1383,23 @@ textarea.is-invalid {
     grid-template-columns: 90px 1fr 28px;
   }
 
+  .stat-card {
+    padding: 14px;
+    gap: 10px;
+  }
+
+  .stat-card__icon {
+    width: 36px;
+    height: 36px;
+  }
+
+  .stat-card__icon svg {
+    width: 17px;
+    height: 17px;
+  }
+
   .stat-card__value {
-    font-size: 22px;
+    font-size: 20px;
   }
 }
 
@@ -1406,8 +1411,14 @@ textarea.is-invalid {
 /* FIX: sin esto, el filtro de usuario (y cualquier otro elemento marcado
    como "hidden") puede seguir visible porque ".field { display: flex }"
    tiene más prioridad que la regla por defecto de [hidden]. */
-#admin-user-filter-container[hidden] {
+#admin-user-filter-container[hidden],
+#stats-user-filter-container[hidden],
+#task-assignee-field[hidden] {
   display: none !important;
+}
+
+#stats-user-filter-container {
+  margin-bottom: 20px;
 }
 
 /* ---------- Botón de editar tarea ---------- */
@@ -1546,3 +1557,56 @@ textarea.is-invalid {
     text-align: center;
   }
 }
+
+/* ---------- Búsqueda rápida de usuarios ---------- */
+.user-filter-search {
+  position: relative;
+  margin-bottom: 6px;
+}
+
+.user-filter-search input {
+  width: 100%;
+  padding: 9px 11px;
+  font-size: 13.5px;
+}
+
+.user-suggestions {
+  position: absolute;
+  top: calc(100% + 5px);
+  left: 0;
+  right: 0;
+  z-index: 20;
+  max-height: 200px;
+  overflow-y: auto;
+  padding: 5px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-md);
+}
+
+.user-suggestions[hidden] {
+  display: none !important;
+}
+
+.user-suggestion {
+  display: block;
+  width: 100%;
+  padding: 9px 10px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  font-size: 13.5px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.user-suggestion:hover,
+.user-suggestion:focus-visible {
+  background: var(--primary-soft);
+  color: var(--primary-strong);
+  outline: none;
+}
+

@@ -129,19 +129,9 @@
 
           <div class="field admin-user-filter" id="admin-user-filter-container" hidden>
             <label id="admin-user-filter-label">Filtrar por usuario</label>
-            <div class="custom-select" id="admin-user-filter">
-              <button
-                type="button"
-                class="custom-select__trigger"
-                id="admin-user-filter-trigger"
-                aria-haspopup="listbox"
-                aria-expanded="false"
-                aria-labelledby="admin-user-filter-label admin-user-filter-current"
-              >
-                <span id="admin-user-filter-current">Todos los usuarios</span>
-                <svg class="custom-select__chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
-              </button>
-              <ul class="custom-select__list" id="admin-user-filter-list" role="listbox" hidden></ul>
+            <div class="user-filter-search">
+              <input type="search" id="admin-user-filter-search" placeholder="Buscar usuario..." aria-label="Buscar usuario en el filtro de tareas" autocomplete="off" />
+              <div class="user-suggestions" id="admin-user-suggestions" role="listbox" hidden></div>
             </div>
           </div>
 
@@ -186,6 +176,14 @@
       <section id="view-estadisticas" class="view" hidden>
         <section class="panel panel--stats">
           <h2 id="stats-title">Mis estadísticas</h2>
+
+          <div class="field admin-user-filter" id="stats-user-filter-container" hidden>
+            <label id="stats-user-filter-label">Filtrar estadísticas por usuario</label>
+            <div class="user-filter-search">
+              <input type="search" id="stats-user-filter-search" placeholder="Buscar usuario..." aria-label="Buscar usuario en estadísticas" autocomplete="off" />
+              <div class="user-suggestions" id="stats-user-suggestions" role="listbox" hidden></div>
+            </div>
+          </div>
 
           <div class="stats-grid" id="stats-grid"></div>
 
@@ -270,6 +268,13 @@
         </div>
 
         <form id="formulario-tarea" class="task-form" novalidate>
+          <div class="field" id="task-assignee-field" hidden>
+            <label for="task-assignee">Asignar a usuario <span class="field__required">*</span></label>
+            <select id="task-assignee" name="taskAssignee">
+              <option value="">Selecciona un usuario</option>
+            </select>
+            <p class="field__error" id="assignment-error" role="alert"></p>
+          </div>
           <div class="field">
             <label for="titulo">Título <span class="field__required">*</span></label>
             <input

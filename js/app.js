@@ -16,8 +16,12 @@ let tareas = [];
 let filtroActual = "todas";
 let modoAuth = "login"; // "login" | "registro"
 let esAdmin = false;
-let filtroUsuarioActual = "todos";
+let filtroUsuarioActual = "";
+let filtroEstadisticasUsuario = "";
 let terminoBusqueda = "";
+let perfilesUsuarios = []; // Lista de TODOS los usuarios (solo se llena para el admin)
+let nombresUsuariosTareas = [];
+let nombresUsuariosEstadisticas = [];
 
 // ---------- Referencias al DOM: Autenticación ----------
 const authSection = document.getElementById("auth-section");
@@ -43,6 +47,9 @@ const tituloInput = document.getElementById("titulo");
 const descripcionInput = document.getElementById("descripcion");
 const fechaLimiteInput = document.getElementById("fechaLimite");
 const prioridadInput = document.getElementById("prioridad");
+const taskAssigneeField = document.getElementById("task-assignee-field");
+const taskAssigneeInput = document.getElementById("task-assignee");
+const assignmentError = document.getElementById("assignment-error");
 const errorTitulo = document.getElementById("title-error");
 const errorDescripcion = document.getElementById("description-error");
 const listaTareas = document.getElementById("lista-tareas");
@@ -51,10 +58,8 @@ const estadoVacio = document.getElementById("estado-vacio");
 const botonesFiltro = document.querySelectorAll(".filter-btn");
 const listTitle = document.getElementById("list-title");
 const adminUserFilterContainer = document.getElementById("admin-user-filter-container");
-const adminUserFilterWrapper = document.getElementById("admin-user-filter");
-const adminUserFilterTrigger = document.getElementById("admin-user-filter-trigger");
-const adminUserFilterCurrent = document.getElementById("admin-user-filter-current");
-const adminUserFilterList = document.getElementById("admin-user-filter-list");
+const adminUserFilterSearch = document.getElementById("admin-user-filter-search");
+const adminUserSuggestions = document.getElementById("admin-user-suggestions");
 const buscadorTareas = document.getElementById("buscador-tareas");
 
 // ---------- Referencias al DOM: Sidebar / navegación entre vistas ----------
@@ -67,6 +72,9 @@ const statsGridEl = document.getElementById("stats-grid");
 const statsPriorityBarsEl = document.getElementById("stats-priority-bars");
 const statsUsersSectionEl = document.getElementById("stats-users-section");
 const statsUserListEl = document.getElementById("stats-user-list");
+const statsUserFilterContainer = document.getElementById("stats-user-filter-container");
+const statsUserFilterSearch = document.getElementById("stats-user-filter-search");
+const statsUserSuggestions = document.getElementById("stats-user-suggestions");
 
 // ---------- Referencias al DOM: Modal "Nueva tarea" ----------
 const fabNuevaTarea = document.getElementById("fab-nueva-tarea");
@@ -232,14 +240,18 @@ async function mostrarApp(user) {
 
   if (esAdmin) {
     adminBadge.hidden = false;
-    fabNuevaTarea.hidden = true;
+    fabNuevaTarea.hidden = false;
+    fabNuevaTarea.setAttribute("aria-label", "Delegar tarea");
     listTitle.textContent = "Todas las tareas";
     adminUserFilterContainer.hidden = false;
+    statsUserFilterContainer.hidden = false;
   } else {
     adminBadge.hidden = true;
     fabNuevaTarea.hidden = false;
+    fabNuevaTarea.setAttribute("aria-label", "Nueva tarea");
     listTitle.textContent = "Mis tareas";
     adminUserFilterContainer.hidden = true;
+    statsUserFilterContainer.hidden = true;
   }
 
   recargarYRenderizar();
@@ -251,8 +263,11 @@ function mostrarAuth() {
   authForm.reset();
   modoAuth = "login";
   esAdmin = false;
-  filtroUsuarioActual = "todos";
-  cerrarListaFiltroUsuario();
+  filtroUsuarioActual = "";
+  filtroEstadisticasUsuario = "";
+  adminUserFilterSearch.value = "";
+  statsUserFilterSearch.value = "";
+  perfilesUsuarios = [];
   actualizarTextosAuth();
 }
 
@@ -311,7 +326,32 @@ botonesNav.forEach((boton) => {
 // Guarda el id de la tarea que se está editando; null = se está creando una nueva
 let tareaEditandoId = null;
 
+function poblarUsuariosParaDelegar() {
+  if (!taskAssigneeInput) return;
+
+  const valorActual = taskAssigneeInput.value;
+  const perfilesOrdenados = [...perfilesUsuarios].sort((a, b) =>
+    (a.full_name || a.email).localeCompare(b.full_name || b.email)
+  );
+
+  taskAssigneeInput.innerHTML = '<option value="">Selecciona un usuario</option>';
+  perfilesOrdenados.forEach((perfil) => {
+    const option = document.createElement("option");
+    option.value = perfil.id;
+    option.textContent = perfil.full_name
+      ? `${perfil.full_name} (${perfil.email})`
+      : perfil.email;
+    taskAssigneeInput.appendChild(option);
+  });
+
+  if (perfilesOrdenados.some((p) => p.id === valorActual)) {
+    taskAssigneeInput.value = valorActual;
+  }
+}
+
 function abrirModalTarea(tarea = null) {
+  if (assignmentError) assignmentError.textContent = "";
+
   if (tarea) {
     tareaEditandoId = tarea.id;
     formTitleEl.textContent = "Editar tarea";
@@ -320,12 +360,22 @@ function abrirModalTarea(tarea = null) {
     descripcionInput.value = tarea.description || "";
     fechaLimiteInput.value = tarea.dueDate || "";
     prioridadInput.value = tarea.priority;
+    taskAssigneeField.hidden = true;
   } else {
     tareaEditandoId = null;
-    formTitleEl.textContent = "Nueva tarea";
-    taskFormSubmitBtn.textContent = "Agregar tarea";
     formulario.reset();
     prioridadInput.value = "media";
+
+    if (esAdmin) {
+      formTitleEl.textContent = "Delegar tarea";
+      taskFormSubmitBtn.textContent = "Delegar tarea";
+      taskAssigneeField.hidden = false;
+      poblarUsuariosParaDelegar();
+    } else {
+      formTitleEl.textContent = "Nueva tarea";
+      taskFormSubmitBtn.textContent = "Agregar tarea";
+      taskAssigneeField.hidden = true;
+    }
   }
   taskModalOverlay.hidden = false;
 }
@@ -368,6 +418,23 @@ const ETIQUETAS_PRIORIDAD = {
   alta: "Prioridad alta",
 };
 
+// Etiquetas cortas para espacios reducidos, como las barras de prioridad
+// en la vista de Estadísticas (ahí "Prioridad baja/media/alta" no cabía).
+const ETIQUETAS_PRIORIDAD_CORTA = {
+  baja: "Baja",
+  media: "Media",
+  alta: "Alta",
+};
+
+// Íconos para cada tarjeta de la vista de Estadísticas.
+const ICONOS_STATS = {
+  total: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>`,
+  pending: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 16 14"/></svg>`,
+  done: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>`,
+  overdue: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>`,
+  users: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>`,
+};
+
 // READ
 // Para un usuario normal: solo trae sus propias tareas (las políticas RLS
 // de Supabase ya se encargan de esto). Para un administrador: trae TODAS
@@ -390,7 +457,7 @@ async function cargarTareas() {
   if (esAdmin) {
     const { data: perfiles, error: errorPerfiles } = await supabaseClient
       .from("profiles")
-      .select("id, full_name, email");
+      .select("id, full_name, email, is_admin");
 
     if (errorPerfiles) {
       console.error("Error al cargar perfiles:", errorPerfiles.message);
@@ -398,6 +465,10 @@ async function cargarTareas() {
       perfiles.forEach((p) => {
         mapaPerfiles[p.id] = p;
       });
+      // Se guarda la lista completa de usuarios (no solo los que tienen
+      // tareas) para que las estadísticas por usuario y el filtro puedan
+      // mostrar también a quienes todavía no tienen ninguna tarea.
+      perfilesUsuarios = perfiles.filter((p) => !p.is_admin);
     }
   }
 
@@ -413,12 +484,13 @@ async function cargarTareas() {
       created_at: row.created_at,
       ownerEmail: perfil ? perfil.email : null,
       ownerName: perfil ? (perfil.full_name || perfil.email) : null,
+      ownerIsAdmin: perfil ? !!perfil.is_admin : false,
     };
   });
 }
 
 // CREATE
-async function crearTarea({ title, description, dueDate, priority }) {
+async function crearTarea({ title, description, dueDate, priority, userId = null }) {
   const { data: userData, error: userError } = await supabaseClient.auth.getUser();
 
   if (userError || !userData || !userData.user) {
@@ -434,7 +506,7 @@ async function crearTarea({ title, description, dueDate, priority }) {
     due_date: dueDate || null,
     priority,
     status: "pendiente",
-    user_id: userData.user.id,
+    user_id: userId || userData.user.id,
   };
 
   const { error } = await supabaseClient.from("tasks").insert(nuevaTarea);
@@ -556,15 +628,68 @@ function mostrarEsqueletoCarga() {
 async function recargarYRenderizar() {
   mostrarEsqueletoCarga();
   tareas = await cargarTareas();
-  if (esAdmin) {
-    poblarFiltroDeUsuarios();
-  }
+  actualizarSugerenciasUsuarios();
   renderizar();
   renderizarCalendario();
   renderizarEstadisticas();
   if (diaCalendarioSeleccionado) {
     renderizarTareasDelDia(diaCalendarioSeleccionado);
   }
+}
+
+function actualizarSugerenciasUsuarios() {
+  nombresUsuariosTareas = [...new Set(
+    tareas
+      .filter((tarea) => !tarea.ownerIsAdmin && tarea.ownerName)
+      .map((tarea) => tarea.ownerName)
+  )].sort((a, b) => a.localeCompare(b));
+
+  nombresUsuariosEstadisticas = [...new Set(
+    perfilesUsuarios
+      .filter((perfil) => perfil.full_name)
+      .map((perfil) => perfil.full_name)
+  )].sort((a, b) => a.localeCompare(b));
+}
+
+function normalizarTexto(texto) {
+  return texto
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+}
+
+function ocultarSugerencias(lista) {
+  lista.hidden = true;
+  lista.innerHTML = "";
+}
+
+function mostrarSugerencias(input, lista, nombres, seleccionarNombre) {
+  const termino = input.value.trim();
+  if (!termino) {
+    ocultarSugerencias(lista);
+    return;
+  }
+
+  const coincidencias = nombres
+    .filter((nombre) => normalizarTexto(nombre).includes(normalizarTexto(termino)))
+    .slice(0, 8);
+
+  lista.innerHTML = "";
+  coincidencias.forEach((nombre) => {
+    const opcion = document.createElement("button");
+    opcion.type = "button";
+    opcion.className = "user-suggestion";
+    opcion.setAttribute("role", "option");
+    opcion.textContent = nombre;
+    opcion.addEventListener("click", () => {
+      input.value = nombre;
+      seleccionarNombre(nombre);
+      ocultarSugerencias(lista);
+    });
+    lista.appendChild(opcion);
+  });
+
+  lista.hidden = coincidencias.length === 0;
 }
 
 // ---------- Validación ----------
@@ -595,8 +720,13 @@ function obtenerTareasFiltradas() {
   let resultado = tareas;
   if (filtroActual === "pendiente") resultado = resultado.filter((t) => t.status === "pendiente");
   if (filtroActual === "completada") resultado = resultado.filter((t) => t.status === "completada");
-  if (esAdmin && filtroUsuarioActual !== "todos") {
-    resultado = resultado.filter((t) => t.ownerEmail === filtroUsuarioActual);
+  if (esAdmin && filtroUsuarioActual.trim() !== "") {
+    const termino = filtroUsuarioActual.trim().toLowerCase();
+    resultado = resultado.filter((t) => {
+      if (t.ownerIsAdmin) return false;
+      const usuario = `${t.ownerName || ""} ${t.ownerEmail || ""}`.toLowerCase();
+      return usuario.includes(termino);
+    });
   }
   if (terminoBusqueda.trim() !== "") {
     const termino = terminoBusqueda.trim().toLowerCase();
@@ -605,87 +735,43 @@ function obtenerTareasFiltradas() {
   return ordenarTareas(resultado);
 }
 
-// Llena la lista de "Filtrar por usuario" con los usuarios que realmente
-// tienen tareas, evitando mostrar opciones vacías.
-function poblarFiltroDeUsuarios() {
-  const usuariosUnicos = new Map();
-  tareas.forEach((t) => {
-    if (t.ownerEmail && !usuariosUnicos.has(t.ownerEmail)) {
-      usuariosUnicos.set(t.ownerEmail, t.ownerName || t.ownerEmail);
-    }
+if (adminUserFilterSearch) {
+  adminUserFilterSearch.addEventListener("input", () => {
+    filtroUsuarioActual = adminUserFilterSearch.value;
+    mostrarSugerencias(
+      adminUserFilterSearch,
+      adminUserSuggestions,
+      nombresUsuariosTareas,
+      (nombre) => {
+        filtroUsuarioActual = nombre;
+        renderizar();
+      }
+    );
+    renderizar();
   });
-
-  // Si el usuario que tenías seleccionado ya no tiene tareas, vuelve a "todos"
-  if (filtroUsuarioActual !== "todos" && !usuariosUnicos.has(filtroUsuarioActual)) {
-    filtroUsuarioActual = "todos";
-  }
-
-  function crearOpcion(valor, texto) {
-    const li = document.createElement("li");
-    li.className = "custom-select__option";
-    li.setAttribute("role", "option");
-    li.dataset.value = valor;
-    li.textContent = texto;
-    const seleccionada = valor === filtroUsuarioActual;
-    li.classList.toggle("is-selected", seleccionada);
-    li.setAttribute("aria-selected", String(seleccionada));
-    li.addEventListener("click", () => seleccionarUsuarioFiltro(valor, texto));
-    return li;
-  }
-
-  adminUserFilterList.innerHTML = "";
-  adminUserFilterList.appendChild(crearOpcion("todos", "Todos los usuarios"));
-  usuariosUnicos.forEach((nombre, email) => {
-    adminUserFilterList.appendChild(crearOpcion(email, nombre));
+  adminUserFilterSearch.addEventListener("blur", () => {
+    setTimeout(() => ocultarSugerencias(adminUserSuggestions), 150);
   });
-
-  adminUserFilterCurrent.textContent =
-    filtroUsuarioActual === "todos" ? "Todos los usuarios" : usuariosUnicos.get(filtroUsuarioActual);
 }
 
-function seleccionarUsuarioFiltro(valor, texto) {
-  filtroUsuarioActual = valor;
-  adminUserFilterCurrent.textContent = texto;
-
-  adminUserFilterList.querySelectorAll(".custom-select__option").forEach((li) => {
-    const seleccionada = li.dataset.value === valor;
-    li.classList.toggle("is-selected", seleccionada);
-    li.setAttribute("aria-selected", String(seleccionada));
+if (statsUserFilterSearch) {
+  statsUserFilterSearch.addEventListener("input", () => {
+    filtroEstadisticasUsuario = statsUserFilterSearch.value;
+    mostrarSugerencias(
+      statsUserFilterSearch,
+      statsUserSuggestions,
+      nombresUsuariosEstadisticas,
+      (nombre) => {
+        filtroEstadisticasUsuario = nombre;
+        renderizarEstadisticas();
+      }
+    );
+    renderizarEstadisticas();
   });
-
-  cerrarListaFiltroUsuario();
-  renderizar();
+  statsUserFilterSearch.addEventListener("blur", () => {
+    setTimeout(() => ocultarSugerencias(statsUserSuggestions), 150);
+  });
 }
-
-function abrirListaFiltroUsuario() {
-  adminUserFilterList.hidden = false;
-  adminUserFilterTrigger.setAttribute("aria-expanded", "true");
-}
-
-function cerrarListaFiltroUsuario() {
-  adminUserFilterList.hidden = true;
-  adminUserFilterTrigger.setAttribute("aria-expanded", "false");
-}
-
-adminUserFilterTrigger.addEventListener("click", (event) => {
-  event.stopPropagation();
-  if (adminUserFilterList.hidden) {
-    abrirListaFiltroUsuario();
-  } else {
-    cerrarListaFiltroUsuario();
-  }
-});
-
-// Cierra la lista si el usuario hace clic afuera, o presiona Escape
-document.addEventListener("click", (event) => {
-  if (!adminUserFilterList.hidden && !adminUserFilterWrapper.contains(event.target)) {
-    cerrarListaFiltroUsuario();
-  }
-});
-
-document.addEventListener("keydown", (event) => {
-  if (event.key === "Escape") cerrarListaFiltroUsuario();
-});
 
 buscadorTareas.addEventListener("input", () => {
   terminoBusqueda = buscadorTareas.value;
@@ -784,33 +870,57 @@ function renderizar() {
 // contiene las de todos, así que las estadísticas quedan globales
 // automáticamente sin código adicional.
 function renderizarEstadisticas() {
-  statsTitleEl.textContent = esAdmin ? "Estadísticas generales" : "Mis estadísticas";
+  const terminoUsuario = filtroEstadisticasUsuario.trim().toLowerCase();
+  const usuariosCoincidentes = perfilesUsuarios.filter((perfil) => {
+    const usuario = `${perfil.full_name || ""} ${perfil.email || ""}`.toLowerCase();
+    return usuario.includes(terminoUsuario);
+  });
+  const hayFiltroUsuario = esAdmin && terminoUsuario !== "";
 
-  const total = tareas.length;
-  const pendientes = tareas.filter((t) => t.status === "pendiente").length;
-  const completadas = tareas.filter((t) => t.status === "completada").length;
-  const vencidas = tareas.filter((t) => estaVencida(t)).length;
-
-  const tarjetas = [];
-
-  if (esAdmin) {
-    const usuariosUnicos = new Set(tareas.map((t) => t.ownerEmail).filter(Boolean));
-    tarjetas.push({ valor: usuariosUnicos.size, etiqueta: "Usuarios activos", clase: "stat-card--users" });
+  if (hayFiltroUsuario) {
+    statsTitleEl.textContent =
+      usuariosCoincidentes.length === 1
+        ? `Estadísticas de ${usuariosCoincidentes[0].full_name || usuariosCoincidentes[0].email}`
+        : "Estadísticas filtradas";
+  } else {
+    statsTitleEl.textContent = esAdmin ? "Estadísticas generales" : "Mis estadísticas";
   }
 
-  tarjetas.push(
-    { valor: total, etiqueta: "Tareas en total", clase: "stat-card--total" },
-    { valor: pendientes, etiqueta: "Pendientes", clase: "stat-card--pending" },
-    { valor: completadas, etiqueta: "Completadas", clase: "stat-card--done" },
-    { valor: vencidas, etiqueta: "Vencidas", clase: "stat-card--overdue" }
-  );
+  // Base de tareas sobre la que se calcula todo: si el admin filtró por un
+  // usuario en concreto, solo se cuentan las tareas de ese usuario.
+  const tareasSinAdministradores = esAdmin
+    ? tareas.filter((t) => !t.ownerIsAdmin)
+    : tareas;
 
+  const tareasBase = hayFiltroUsuario
+    ? tareasSinAdministradores.filter((t) =>
+        usuariosCoincidentes.some((perfil) => perfil.email === t.ownerEmail)
+      )
+    : tareasSinAdministradores;
+
+  const total = tareasBase.length || 0;
+  const pendientes = tareasBase.filter((t) => t.status === "pendiente").length || 0;
+  const completadas = tareasBase.filter((t) => t.status === "completada").length || 0;
+  const vencidas = tareasBase.filter((t) => estaVencida(t)).length || 0;
+
+  const tarjetas = [
+    { valor: total, etiqueta: "Tareas en total", clase: "stat-card--total", tipo: "total" },
+    { valor: pendientes, etiqueta: "Pendientes", clase: "stat-card--pending", tipo: "pending" },
+    { valor: completadas, etiqueta: "Completadas", clase: "stat-card--done", tipo: "done" },
+    { valor: vencidas, etiqueta: "Vencidas", clase: "stat-card--overdue", tipo: "overdue" },
+  ];
+
+  // Siempre se pintan las 4 tarjetas, incluso en 0, para que la vista
+  // nunca se vea vacía cuando todavía no hay tareas.
   statsGridEl.innerHTML = tarjetas
     .map(
       (t) => `
       <div class="stat-card ${t.clase}">
-        <p class="stat-card__value">${t.valor}</p>
-        <p class="stat-card__label">${t.etiqueta}</p>
+        <span class="stat-card__icon" aria-hidden="true">${ICONOS_STATS[t.tipo] || ""}</span>
+        <div class="stat-card__body">
+          <p class="stat-card__value">${t.valor ?? 0}</p>
+          <p class="stat-card__label">${t.etiqueta}</p>
+        </div>
       </div>
     `
     )
@@ -818,7 +928,7 @@ function renderizarEstadisticas() {
 
   // ---- Distribución por prioridad ----
   const porPrioridad = { baja: 0, media: 0, alta: 0 };
-  tareas.forEach((t) => {
+  tareasBase.forEach((t) => {
     if (porPrioridad[t.priority] !== undefined) porPrioridad[t.priority]++;
   });
   const maxPrioridad = Math.max(1, ...Object.values(porPrioridad));
@@ -828,7 +938,7 @@ function renderizarEstadisticas() {
       const porcentaje = Math.round((cantidad / maxPrioridad) * 100);
       return `
         <div class="stats-bar-row">
-          <span class="stats-bar-row__label">${ETIQUETAS_PRIORIDAD[prioridad]}</span>
+          <span class="stats-bar-row__label stats-bar-row__label--${prioridad}">${ETIQUETAS_PRIORIDAD_CORTA[prioridad]}</span>
           <div class="stats-bar-row__track">
             <div class="stats-bar-row__fill stats-bar-row__fill--${prioridad}" style="width: ${porcentaje}%"></div>
           </div>
@@ -838,12 +948,17 @@ function renderizarEstadisticas() {
     })
     .join("");
 
-  // ---- Ranking por usuario (solo visible para el administrador) ----
-  if (esAdmin) {
+  // ---- Ranking por usuario (solo visible para el admin viendo "todos") ----
+  // Se listan TODOS los usuarios registrados, no solo los que tienen
+  // tareas, para que quien no tenga ninguna aparezca igual con 0.
+  if (esAdmin && !hayFiltroUsuario) {
     statsUsersSectionEl.hidden = false;
 
     const conteoPorUsuario = new Map();
-    tareas.forEach((t) => {
+    perfilesUsuarios.forEach((p) => {
+      conteoPorUsuario.set(p.full_name || p.email, 0);
+    });
+    tareasSinAdministradores.forEach((t) => {
       if (!t.ownerEmail) return;
       const nombre = t.ownerName || t.ownerEmail;
       conteoPorUsuario.set(nombre, (conteoPorUsuario.get(nombre) || 0) + 1);
@@ -880,6 +995,12 @@ formulario.addEventListener("submit", async (event) => {
 
   if (!validarFormulario(titulo, descripcion)) return;
 
+  if (assignmentError) assignmentError.textContent = "";
+  if (esAdmin && !tareaEditandoId && !taskAssigneeInput.value) {
+    assignmentError.textContent = "Selecciona el usuario al que vas a delegar la tarea.";
+    return;
+  }
+
   // El "finally" garantiza que el formulario SIEMPRE se limpie,
   // haya funcionado la operación o no.
   try {
@@ -896,6 +1017,7 @@ formulario.addEventListener("submit", async (event) => {
         description: descripcion,
         dueDate: fechaLimiteInput.value,
         priority: prioridadInput.value,
+        userId: esAdmin ? taskAssigneeInput.value : null,
       });
     }
   } finally {
